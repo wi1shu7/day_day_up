@@ -1,0 +1,1 @@
+print(__file__ + " -> __builtins__ : " + str(type(__builtins__)))
