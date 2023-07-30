@@ -60,6 +60,8 @@
         * [builtins与\_\_builtin\_\_关系：](#builtins与__builtin__关系)
         * [\_\_builtins\_\_](#__builtins__)
         * [利用](#利用)
+  * [花式执行函数](#花式执行函数)
+  * [通过继承关系逃逸](#通过继承关系逃逸)
 * [SSTI](#ssti)
   * [SSTI简介](#ssti简介)
   * [模板是什么](#模板是什么)
@@ -2120,7 +2122,83 @@ aabbccd
 
 ![image-20230730214127681](daydayup.assets/image-20230730214127681.png)
 
+那么既然`__builtins__`有这么多危险的函数，不如将里面的危险函数破坏了：
 
+```
+__builtins__.__dict__['eval'] = 'not allowed'
+```
+
+或者直接删了：
+
+```
+del __builtins__.__dict__['eval']
+```
+
+但是我们可以利用 `reload(__builtins__)` 来恢复 `__builtins__`。不过，我们在使用 `reload` 的时候也没导入，说明`reload`也在 `__builtins__`里，那如果连`reload`都从`__builtins__`中删了，就没法恢复`__builtins__`了，需要另寻他法。
+
+3.8 3.9 经测试已经无法恢复，2.7 可以
+![image-20230730224716559](daydayup.assets/image-20230730224716559.png)
+![image-20230730224826870](daydayup.assets/image-20230730224826870.png)
+
+这里注意，在 Python 3.4 之前的版本中，`reload()` 函数是一个内置函数，3.4之后需要 `import imp`，然后再 `imp.reload`，从 Python 3.4 之后，建议使用 `importlib` 模块中的 `importlib.reload()` 函数来重新加载模块，因为 `imp` 模块在未来的版本中可能会被移除。
+
+### 花式执行函数
+
+在 Python 中执行系统命令的方式有：
+
+```
+os
+commands：仅限2.x
+subprocess
+timeit：timeit.sys、timeit.timeit("__import__('os').system('whoami')", number=1)
+platform：platform.os、platform.sys、platform.popen('whoami', mode='r', bufsize=-1).read()
+pty：pty.spawn('ls')、pty.os
+bdb：bdb.os、cgi.sys
+cgi：cgi.os、cgi.sys
+...
+```
+
+通过上面内容我们很容易发现，光引入`os`只不过是第一步，如果把`system`这个函数干掉，也没法通过`os.system`执行系统命令，并且这里的`system`也不是字符串，也没法直接做编码等等操作。
+
+不过，要明确的是，os 中能够执行系统命令的函数有很多：
+
+```
+print(os.system('whoami'))
+print(os.popen('whoami').read()) 
+print(os.popen2('whoami').read()) # 2.x
+print(os.popen3('whoami').read()) # 2.x
+print(os.popen4('whoami').read()) # 2.x
+...
+```
+
+应该还有一些，可以在这里找找：
+
+[2.x 传送门](https://docs.python.org/2/library/os.html)
+
+[3.x 传送门](https://docs.python.org/3/library/os.html)
+
+过滤`system`的时候说不定还有其他函数给漏了。
+
+其次，可以通过 `getattr` 拿到对象的方法、属性：
+
+```
+import os
+getattr(os, 'metsys'[::-1])('whoami')
+```
+
+不让出现 import也没事：
+
+```
+>>> getattr(getattr(__builtins__, '__tropmi__'[::-1])('so'[::-1]), 'metsys'[::-1])('whoami')
+desktop-13qds1a\lenovo
+0
+```
+
+与 `getattr` 相似的还有 `__getattr__`、`__getattribute__`，它们自己的区别就是`getattr`相当于`class.attr`，都是获取类属性/方法的一种方式，在获取的时候会触发`__getattribute__`，如果`__getattribute__`找不到，则触发`__getattr__`，还找不到则报错。更具体的这里就不解释了，下面有。
+
+### 通过继承关系逃逸
+
+[这里](#Python中的一些 Magic Method)
 
 ## SSTI
 
@@ -2260,6 +2338,8 @@ if __name__ == "__main__":
 ```
 
 ![image-20230729181809015](daydayup.assets/image-20230729181809015.png)
+
+
 
 ```
 <class 'os._wrap_close'>类：

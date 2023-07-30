@@ -1,7 +1,10 @@
+import importlib
+
 
 def shout1():
     print("all aw")
     return 'all aw'
+
 
 class aw(object):
 
@@ -12,6 +15,7 @@ class aw(object):
         print("aw")
         return 'aw'
 
+
 class awtwo():
 
     def __init__(self):
@@ -21,8 +25,15 @@ class awtwo():
         print("aw aw")
         return 'aw aw'
 
+
 if __name__ == "__main__":
     import SSTIclassdemo2
+
     print(__file__ + " -> __builtins__ : " + str(type(__builtins__)))
 
     print('__import__' in dir(__builtins__))
+
+    a = SSTIclassdemo2.awthree()
+    del a.name
+    importlib.reload(SSTIclassdemo2)
+    print(a.name)
