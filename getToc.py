@@ -43,4 +43,3 @@ if __name__ == "__main__":
 
     # 获取参数值，进行操作
     get_toc(args.f1, args.f2, args.print)
-
