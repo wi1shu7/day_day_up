@@ -2198,7 +2198,7 @@ desktop-13qds1a\lenovo
 
 ### 通过继承关系逃逸
 
-[这里](#Python中的一些 Magic Method)
+* [这里](#Python中的一些 Magic Method)
 
 ## SSTI
 
