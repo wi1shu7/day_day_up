@@ -106,7 +106,7 @@ logging中可以选择很多消息级别，如debug、info、warning、error以�
 
 ### 将日志写入到文件
 
-#### **将日志写入到文件**
+#### 将日志写入到文件
 
 设置logging，创建一个FileHandler，并对输出消息的格式进行设置，将其添加到logger，然后将日志写入到指定的文件中，
 
@@ -130,7 +130,7 @@ log.txt中日志数据为，
 
     2016-10-09 19:01:13,263 - __main__ - INFO - Start print log2016-10-09 19:01:13,263 - __main__ - WARNING - Something maybe fail.2016-10-09 19:01:13,263 - __main__ - INFO - Finish
 
-#### **将日志同时输出到屏幕和日志文件**
+#### 将日志同时输出到屏幕和日志文件
 
 logger中添加StreamHandler，可以将日志输出到屏幕上，
 
@@ -178,7 +178,7 @@ logger.info("Finish")
     MemoryHandler：logging.handlers.MemoryHandler；日志输出到内存中的指定buffer
     HTTPHandler：logging.handlers.HTTPHandler；通过"GET"或者"POST"远程输出到HTTP服务器
 
-#### **日志回滚**
+#### 日志回滚
 
 使用RotatingFileHandler，可以实现日志回滚，
 
