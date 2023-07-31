@@ -4,13 +4,14 @@ import argparse
 
 
 def replace_first_occurrence(string, old_substring, new_substring):
-    index = string.find(old_substring)# 查找子字符串的索引
+    index = string.find(old_substring)  # 查找子字符串的索引
     if index != -1:
         # 使用切片操作替换第一次出现的子字符串
         new_string = string[:index] + new_substring + string[index + len(old_substring):]
         return new_string
     else:
         return string
+
 
 def get_toc(preFile, endFile, ifPrint):
     toc: str = subprocess.run(f'gh-md-toc.exe {preFile}', shell=True, capture_output=True, text=True, encoding='utf-8') \

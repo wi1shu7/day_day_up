@@ -1,3 +1,5 @@
+[TOC]
+
 ```php
 <?php
 $hello = "world";

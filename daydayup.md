@@ -1838,6 +1838,10 @@ if __name__ == '__main__':
 
 
 
+## CSRF
+
+
+
 ## Python沙箱逃逸
 
 [一文看懂Python沙箱逃逸 - FreeBuf网络安全行业门户](https://www.freebuf.com/articles/system/203208.html)
@@ -2112,10 +2116,27 @@ Python 中有个属性，`.__mro__` 或 `.mro()`，是个元组，记录了继�
 [<class 'str'>, <class 'object'>]
 >>> '1'.__class__.__mro__
 (<class 'str'>, <class 'object'>)
->>>
 ```
 
+类的实例在获取 `__class__` 属性时会指向该实例对应的类。可以看到，`''`属于 `str`类，它继承了 `object` 类，这个类是所有类的超类。具有相同功能的还有`__base__`和`__bases__`。需要注意的是，经典类需要指明继承 object 才会继承它，否则是不会继承的（Python 3.9 测试无需指明）
 
+那么知道这个有什么用呢？
+
+由于没法直接引入 os，那么假如有个库叫`oos`，在`oos`中引入了`os`，那么我们就可以通过`__globals__`拿到 `os`。例如，`site` 这个库就有 `os`：
+
+```
+>>> __import__('site').os
+<module 'os' from 'C:\\Users\\Lenovo\\AppData\\Local\\Programs\\Python\\Python39\\lib\\os.py'>
+```
+
+`__globals__` 是函数所在的全局命名空间中所定义的全局变量。也就是只要是函数就会有这个属性。
+
+>1. `builtin_function_or_method` 类型函数：
+>   - `builtin_function_or_method` 是 Python 中内置函数（built-in functions）的类型，这些函数是 Python 解释器内置的一些常用功能函数，例如 `print()`、`len()`、`range()` 等。
+>2. `wrapper_descriptor` 类型函数：
+>   - `wrapper_descriptor` 是 Python 中的描述符（descriptor）类型，它是用于实现特定属性访问逻辑的一种对象。通常，它是由类的特殊方法（如 `__get__()`、`__set__()` 等）定义的。
+>3. `method-wrapper` 类型函数：
+>   - `method-wrapper` 是 Python 中包装（wrapper）方法的类型。当类的方法被调用时，Python 会自动创建一个 `method-wrapper` 对象来包装该方法，从而提供额外的功能或处理。
 
 ## SSTI
 
@@ -2382,10 +2403,12 @@ my_instance.say_hello()
 
 ## hebust教务系统逆向
 
-```python
+```
 https://github.com/wi1shu7/fuck_hebust_login
-    
-    
+```
+
+```python
+# 模块化示例
 class InformationHandler:
     def __init__(self):
         self.modules = {}
@@ -2421,21 +2444,568 @@ if __name__ == "__main__":
 
 ```
 
+### logging模块基本使用
+
+转自：[https://www.cnblogs.com/wf-linux/archive/2018/08/01/9400354.html](https://www.cnblogs.com/wf-linux/archive/2018/08/01/9400354.html)
+配置logging基本的设置，然后在控制台输出日志，
+
+```python
+import logging
+logging.basicConfig(level = logging.INFO,format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+ 
+logger.info("Start print log")
+logger.debug("Do something")
+logger.warning("Something maybe fail.")
+logger.info("Finish")
+```
+
+运行时，控制台输出，
+
+    2016-10-09 19:11:19,434 - __main__ - INFO - Start print log
+    2016-10-09 19:11:19,434 - __main__ - WARNING - Something maybe fail.
+    2016-10-09 19:11:19,434 - __main__ - INFO - Finish
+
+logging中可以选择很多消息级别，如debug、info、warning、error以及critical。通过赋予logger或者handler不同的级别，开发者就可以只输出错误信息到特定的记录文件，或者在调试时只记录调试信息。
+
+例如，我们将logger的级别改为DEBUG，再观察一下输出结果，
+
+`logging.basicConfig(level = logging.DEBUG,format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s')`
+
+控制台输出，可以发现，输出了debug的信息。
+
+    2016-10-09 19:12:08,289 - __main__ - INFO - Start print log
+    2016-10-09 19:12:08,289 - __main__ - DEBUG - Do something
+    2016-10-09 19:12:08,289 - __main__ - WARNING - Something maybe fail.
+    2016-10-09 19:12:08,289 - __main__ - INFO - Finish
+
+`logging.basicConfig`函数各参数：
+
+`filename`：指定日志文件名；
+
+`filemode`：和file函数意义相同，指定日志文件的打开模式，'w'或者'a'；
+
+`format`：指定输出的格式和内容，format可以输出很多有用的信息，
+
+    参数：作用
+     
+    %(levelno)s：打印日志级别的数值
+    %(levelname)s：打印日志级别的名称
+    %(pathname)s：打印当前执行程序的路径，其实就是sys.argv[0]
+    %(filename)s：打印当前执行程序名
+    %(funcName)s：打印日志的当前函数
+    %(lineno)d：打印日志的当前行号
+    %(asctime)s：打印日志的时间
+    %(thread)d：打印线程ID
+    %(threadName)s：打印线程名称
+    %(process)d：打印进程ID
+    %(message)s：打印日志信息
+
+`datefmt`：指定时间格式，同time.strftime()；
+
+`level`：设置日志级别，默认为logging.WARNNING；
+
+`stream`：指定将日志的输出流，可以指定输出到sys.stderr，sys.stdout或者文件，默认输出到sys.stderr，当stream和filename同时指定时，stream被忽略；
+
+### 将日志写入到文件
+
+#### **将日志写入到文件**
+
+设置logging，创建一个FileHandler，并对输出消息的格式进行设置，将其添加到logger，然后将日志写入到指定的文件中，
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level = logging.INFO)
+handler = logging.FileHandler("log.txt")
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+ 
+logger.info("Start print log")
+logger.debug("Do something")
+logger.warning("Something maybe fail.")
+logger.info("Finish")
+```
+
+log.txt中日志数据为，
+
+    2016-10-09 19:01:13,263 - __main__ - INFO - Start print log2016-10-09 19:01:13,263 - __main__ - WARNING - Something maybe fail.2016-10-09 19:01:13,263 - __main__ - INFO - Finish
+
+#### **将日志同时输出到屏幕和日志文件**
+
+logger中添加StreamHandler，可以将日志输出到屏幕上，
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level = logging.INFO)
+handler = logging.FileHandler("log.txt")
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+ 
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+ 
+logger.addHandler(handler)
+logger.addHandler(console)
+ 
+logger.info("Start print log")
+logger.debug("Do something")
+logger.warning("Something maybe fail.")
+logger.info("Finish")
+```
+
+可以在log.txt文件和控制台中看到，
+
+    2016-10-09 19:20:46,553 - __main__ - INFO - Start print log
+    2016-10-09 19:20:46,553 - __main__ - WARNING - Something maybe fail.
+    2016-10-09 19:20:46,553 - __main__ - INFO - Finish
+
+可以发现，logging有一个日志处理的主对象，其他处理方式都是通过addHandler添加进去，logging中包含的handler主要有如下几种，
+
+    handler名称：位置；作用
+     
+    StreamHandler：logging.StreamHandler；日志输出到流，可以是sys.stderr，sys.stdout或者文件
+    FileHandler：logging.FileHandler；日志输出到文件
+    BaseRotatingHandler：logging.handlers.BaseRotatingHandler；基本的日志回滚方式
+    RotatingHandler：logging.handlers.RotatingHandler；日志回滚方式，支持日志文件最大数量和日志文件回滚
+    TimeRotatingHandler：logging.handlers.TimeRotatingHandler；日志回滚方式，在一定时间区域内回滚日志文件
+    SocketHandler：logging.handlers.SocketHandler；远程输出日志到TCP/IP sockets
+    DatagramHandler：logging.handlers.DatagramHandler；远程输出日志到UDP sockets
+    SMTPHandler：logging.handlers.SMTPHandler；远程输出日志到邮件地址
+    SysLogHandler：logging.handlers.SysLogHandler；日志输出到syslog
+    NTEventLogHandler：logging.handlers.NTEventLogHandler；远程输出日志到Windows NT/2000/XP的事件日志
+    MemoryHandler：logging.handlers.MemoryHandler；日志输出到内存中的指定buffer
+    HTTPHandler：logging.handlers.HTTPHandler；通过"GET"或者"POST"远程输出到HTTP服务器
+
+#### **日志回滚**
+
+使用RotatingFileHandler，可以实现日志回滚，
+
+```python
+import logging
+from logging.handlers import RotatingFileHandler
+logger = logging.getLogger(__name__)
+logger.setLevel(level = logging.INFO)
+#定义一个RotatingFileHandler，最多备份3个日志文件，每个日志文件最大1K
+rHandler = RotatingFileHandler("log.txt",maxBytes = 1*1024,backupCount = 3)
+rHandler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+rHandler.setFormatter(formatter)
+ 
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+console.setFormatter(formatter)
+ 
+logger.addHandler(rHandler)
+logger.addHandler(console)
+ 
+logger.info("Start print log")
+logger.debug("Do something")
+logger.warning("Something maybe fail.")
+logger.info("Finish")
+```
+
+可以在工程目录中看到，备份的日志文件，
+
+    2016/10/09  19:36               732 log.txt
+    2016/10/09  19:36               967 log.txt.1
+    2016/10/09  19:36               985 log.txt.2
+    2016/10/09  19:36               976 log.txt.3
+
+### 设置消息的等级
+
+可以设置不同的日志等级，用于控制日志的输出，
+
+    日志等级：使用范围
+     
+    FATAL：致命错误
+    CRITICAL：特别糟糕的事情，如内存耗尽、磁盘空间为空，一般很少使用
+    ERROR：发生错误时，如IO操作失败或者连接问题
+    WARNING：发生很重要的事件，但是并不是错误时，如用户登录密码错误
+    INFO：处理请求或者状态变化等日常事务
+    DEBUG：调试过程中使用DEBUG等级，如算法中每个循环的中间状态
+
+### 捕获traceback
+
+Python中的traceback模块被用于跟踪异常返回信息，可以在logging中记录下traceback，
+
+代码，
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(level = logging.INFO)
+handler = logging.FileHandler("log.txt")
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+ 
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+ 
+logger.addHandler(handler)
+logger.addHandler(console)
+ 
+logger.info("Start print log")
+logger.debug("Do something")
+logger.warning("Something maybe fail.")
+try:
+    open("sklearn.txt","rb")
+except (SystemExit,KeyboardInterrupt):
+    raise
+except Exception:
+    logger.error("Faild to open sklearn.txt from logger.error",exc_info = True)
+ 
+logger.info("Finish")
+```
+
+控制台和日志文件log.txt中输出，
+
+    Start print log
+    Something maybe fail.
+    Faild to open sklearn.txt from logger.error
+    Traceback (most recent call last):
+      File "G:\zhb7627\Code\Eclipse WorkSpace\PythonTest\test.py", line 23, in <module>
+        open("sklearn.txt","rb")
+    IOError: [Errno 2] No such file or directory: 'sklearn.txt'
+    Finish
+
+也可以使用logger.exception(msg,\_args)，它等价于logger.error(msg,exc\_info = True,\_args)，
+
+将
+
+    logger.error("Faild to open sklearn.txt from logger.error",exc_info = True)
+
+替换为，
+
+    logger.exception("Failed to open sklearn.txt from logger.exception")
+
+控制台和日志文件log.txt中输出，
+
+    Start print log
+    Something maybe fail.
+    Failed to open sklearn.txt from logger.exception
+    Traceback (most recent call last):
+      File "G:\zhb7627\Code\Eclipse WorkSpace\PythonTest\test.py", line 23, in <module>
+        open("sklearn.txt","rb")
+    IOError: [Errno 2] No such file or directory: 'sklearn.txt'
+    Finish
+
+### 多模块使用logging
+
+主模块mainModule.py，
+
+    import logging
+    import subModule
+    logger = logging.getLogger("mainModule")
+    logger.setLevel(level = logging.INFO)
+    handler = logging.FileHandler("log.txt")
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+     
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(formatter)
+     
+    logger.addHandler(handler)
+    logger.addHandler(console)
+     
+     
+    logger.info("creating an instance of subModule.subModuleClass")
+    a = subModule.SubModuleClass()
+    logger.info("calling subModule.subModuleClass.doSomething")
+    a.doSomething()
+    logger.info("done with  subModule.subModuleClass.doSomething")
+    logger.info("calling subModule.some_function")
+    subModule.som_function()
+    logger.info("done with subModule.some_function")
+
+子模块subModule.py，
+
+    import logging
+     
+    module_logger = logging.getLogger("mainModule.sub")
+    class SubModuleClass(object):
+        def __init__(self):
+            self.logger = logging.getLogger("mainModule.sub.module")
+            self.logger.info("creating an instance in SubModuleClass")
+        def doSomething(self):
+            self.logger.info("do something in SubModule")
+            a = []
+            a.append(1)
+            self.logger.debug("list a = " + str(a))
+            self.logger.info("finish something in SubModuleClass")
+     
+    def som_function():
+        module_logger.info("call function some_function")
+
+执行之后，在控制和日志文件log.txt中输出，
+
+    2016-10-09 20:25:42,276 - mainModule - INFO - creating an instance of subModule.subModuleClass
+    2016-10-09 20:25:42,279 - mainModule.sub.module - INFO - creating an instance in SubModuleClass
+    2016-10-09 20:25:42,279 - mainModule - INFO - calling subModule.subModuleClass.doSomething
+    2016-10-09 20:25:42,279 - mainModule.sub.module - INFO - do something in SubModule
+    2016-10-09 20:25:42,279 - mainModule.sub.module - INFO - finish something in SubModuleClass
+    2016-10-09 20:25:42,279 - mainModule - INFO - done with  subModule.subModuleClass.doSomething
+    2016-10-09 20:25:42,279 - mainModule - INFO - calling subModule.some_function
+    2016-10-09 20:25:42,279 - mainModule.sub - INFO - call function some_function
+    2016-10-09 20:25:42,279 - mainModule - INFO - done with subModule.some_function
+
+首先在主模块定义了logger'mainModule'，并对它进行了配置，就可以在解释器进程里面的其他地方通过getLogger('mainModule')得到的对象都是一样的，不需要重新配置，可以直接使用。定义的该logger的子logger，都可以共享父logger的定义和配置，所谓的父子logger是通过命名来识别，任意以'mainModule'开头的logger都是它的子logger，例如'mainModule.sub'。
+
+实际开发一个application，首先可以通过logging配置文件编写好这个application所对应的配置，可以生成一个根logger，如'PythonAPP'，然后在主函数中通过fileConfig加载logging配置，接着在application的其他地方、不同的模块中，可以使用根logger的子logger，如'PythonAPP.Core'，'PythonAPP.Web'来进行log，而不需要反复的定义和配置各个模块的logger。
+
+### 通过JSON或者YAML文件配置logging模块
+
+尽管可以在Python代码中配置logging，但是这样并不够灵活，最好的方法是使用一个配置文件来配置。在Python 2.7及以后的版本中，可以从字典中加载logging配置，也就意味着可以通过JSON或者YAML文件加载日志的配置。
+
+#### 通过JSON文件配置
+
+JSON配置文件，
+
+```json
+{
+    "version":1,
+    "disable_existing_loggers":false,
+    "formatters":{
+        "simple":{
+            "format":"%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        }
+    },
+    "handlers":{
+        "console":{
+            "class":"logging.StreamHandler",
+            "level":"DEBUG",
+            "formatter":"simple",
+            "stream":"ext://sys.stdout"
+        },
+        "info_file_handler":{
+            "class":"logging.handlers.RotatingFileHandler",
+            "level":"INFO",
+            "formatter":"simple",
+            "filename":"info.log",
+            "maxBytes":"10485760",
+            "backupCount":20,
+            "encoding":"utf8"
+        },
+        "error_file_handler":{
+            "class":"logging.handlers.RotatingFileHandler",
+            "level":"ERROR",
+            "formatter":"simple",
+            "filename":"errors.log",
+            "maxBytes":10485760,
+            "backupCount":20,
+            "encoding":"utf8"
+        }
+    },
+    "loggers":{
+        "my_module":{
+            "level":"ERROR",
+            "handlers":["info_file_handler"],
+            "propagate":"no"
+        }
+    },
+    "root":{
+        "level":"INFO",
+        "handlers":["console","info_file_handler","error_file_handler"]
+    }
+}
+```
+
+通过JSON加载配置文件，然后通过logging.dictConfig配置logging，
+
+```python
+import json
+import logging.config
+import os
+ 
+def setup_logging(default_path = "logging.json",default_level = logging.INFO,env_key = "LOG_CFG"):
+    path = default_path
+    value = os.getenv(env_key,None)
+    if value:
+        path = value
+    if os.path.exists(path):
+        with open(path,"r") as f:
+            config = json.load(f)
+            logging.config.dictConfig(config)
+    else:
+        logging.basicConfig(level = default_level)
+ 
+def func():
+    logging.info("start func")
+ 
+    logging.info("exec func")
+ 
+    logging.info("end func")
+ 
+if __name__ == "__main__":
+    setup_logging(default_path = "logging.json")
+    func()
+```
+
+#### 通过YAML文件配置
+
+通过YAML文件进行配置，比JSON看起来更加简介明了，
+
+```yaml
+version: 1
+disable_existing_loggers: False
+formatters:
+        simple:
+            format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+handlers:
+    console:
+            class: logging.StreamHandler
+            level: DEBUG
+            formatter: simple
+            stream: ext://sys.stdout
+    info_file_handler:
+            class: logging.handlers.RotatingFileHandler
+            level: INFO
+            formatter: simple
+            filename: info.log
+            maxBytes: 10485760
+            backupCount: 20
+            encoding: utf8
+    error_file_handler:
+            class: logging.handlers.RotatingFileHandler
+            level: ERROR
+            formatter: simple
+            filename: errors.log
+            maxBytes: 10485760
+            backupCount: 20
+            encoding: utf8
+loggers:
+    my_module:
+            level: ERROR
+            handlers: [info_file_handler]
+            propagate: no
+root:
+    level: INFO
+    handlers: [console,info_file_handler,error_file_handler]
+```
+
+通过YAML加载配置文件，然后通过logging.dictConfig配置logging，
+
+```python
+import yaml
+import logging.config
+import os
+ 
+def setup_logging(default_path = "logging.yaml",default_level = logging.INFO,env_key = "LOG_CFG"):
+    path = default_path
+    value = os.getenv(env_key,None)
+    if value:
+        path = value
+    if os.path.exists(path):
+        with open(path,"r") as f:
+            config = yaml.load(f)
+            logging.config.dictConfig(config)
+    else:
+        logging.basicConfig(level = default_level)
+ 
+def func():
+    logging.info("start func")
+ 
+    logging.info("exec func")
+ 
+    logging.info("end func")
+ 
+if __name__ == "__main__":
+    setup_logging(default_path = "logging.yaml")
+    func()
+```
+
 ## 正则表达式
 
-捕获组
+#### 捕获组
 
+使用小括号指定一个子表达式后，匹配这个子表达式的文本(也就是此分组捕获的内容)可以在表达式或其它程序中作进一步的处理。默认情况下，每个捕获组会自动拥有一个组号，规则是：从左向右，以分组的左括号为标志，第一个出现的分组的组号为1，第二个为2，以此类推。  也可以自己指定子表达式的组名。这样在表达式或程序中可以直接引用组名，当然也可以继续使用组号。但如果正则表达式中同时存在普通捕获组和命名捕获组，那么捕获组的编号就要特别注意，编号的规则是先对普通捕获组进行编号，再对命名捕获组进行编号。详细语法如下：
 
+`(pattern)`：匹配pattern并捕获结果，自动设置组号。
 
-1. `?=` 正向预查（Positive Lookahead）： `?=` 是一个正向预查，用于指定一个必须满足的条件，但不捕获实际匹配的内容。它的语法是 `(?=...)`，其中 `...` 是一个正则表达式，表示需要满足的条件。当 `?=` 后面的内容满足 `...` 的条件时，整个表达式才算匹配，但最终匹配结果并不包含 `?=` 后面的内容。
+```undefined
+(abc)+d :  匹配到abcd或者abcabcd
+```
 
-   示例：`foo(?=bar)` 匹配 `foo`，但只有当其后紧跟着 `bar` 时才是有效的匹配。
+`(?<name>pattern)`或`(?'name'pattern)`：匹配pattern并捕获结果，设置name为组名。
 
-2. `?:` 非捕获组（Non-capturing Group）： `?:` 是用于创建非捕获组的语法，用于指定一个子表达式，但不将其捕获为匹配结果中的一个分组。它的语法是 `(?:...)`，其中 `...` 是一个子表达式。
+ `\num`：对捕获组的反向引用。其中 num 是一个正整数。
+
+```undefined
+(\w)(\w)\2\1: 匹配到abba
+```
+
+`\k<name>`或`\k'name'`：对命名捕获组的反向引用。其中 name 是捕获组名。
+
+```csharp
+(?<group>\w)abc\k<group>  : 匹配到xabcx
+```
+
+1. `(?:pattern)` 非捕获组（Non-capturing Group）
+   `?:` 是用于创建非捕获组的语法，用于指定一个子表达式，但不将其捕获为匹配结果中的一个分组。它的语法是 `(?:...)`，其中 `...` 是一个子表达式。
 
    示例：`(?:foo)+` 匹配一个或多个连续出现的 `foo`，但不会捕获每个 `foo` 作为匹配结果中的一个分组。
 
+2. `(?=pattern)` ：零宽度正向预查（正向零宽断言）
+   `?=` 是一个正向预查，用于指定一个必须满足的条件，但不捕获实际匹配的内容。它的语法是 `(?=...)`，其中 `...` 是一个正则表达式，表示需要满足的条件。当 `?=` 后面的内容满足 `...` 的条件时，整个表达式才算匹配，但最终匹配结果并不包含 `?=` 后面的内容，也并不会“消耗”或匹配该模式，只是确认它存在。
 
+   示例：`foo(?=bar)` 匹配 `foo`，但只有当其后紧跟着 `bar` 时才是有效的匹配。
+
+3. `(?!pattern)`：零宽度负向预查（负向零宽断言）
+
+   `?!` 是一个负向预查，用于指定一个条件，表示该条件在当前位置不应该出现。它的语法是 `(?!...)`，其中 `...` 是一个正则表达式，表示需要满足的条件。当 `?!` 后面的内容不满足 `...` 的条件时，整个表达式才算匹配。
+
+   示例：`foo(?!bar)` 匹配 `foo`，但只有当其后不紧跟着 `bar` 时才是有效的匹配。
+
+4. `(?<=pattern)`: 零宽度正向回查（也称为正向零宽断言）。
+
+   这个断言会查找前面是`pattern`的地方。例如，`(?<=a)b`会匹配所有前面是`a`的`b`。在字符串`abc`中，`b`会被匹配，因为它前面是`a`。但是，这个断言并不会“消耗”或匹配`a`，所以如果你对整个字符串进行匹配，只有`b`会被返回，而不是`ab`。
+
+   注意，正向回查中的`pattern`必须是固定长度的。也就是说，你不能在`pattern`中使用`*`或`+`这样的量词。
+
+5. `(?<!pattern)`: 零宽度负向回查（也称为负向零宽断言）。
+
+   这个断言会查找前面不是`pattern`的地方。例如，`(?<!a)b`会匹配所有前面不是`a`的`b`。在字符串`abc`中，`b`不会被匹配，因为它前面是`a`。但是，在字符串`dbc`中，`b`会被匹配，因为它前面是`d`，不是`a`。
+
+   同样，负向回查中的`pattern`必须是固定长度的。
+
+#### 分组引用
+
+上面讲完了分组，我们来看下如何来引用分组，大部分语言都是用 **反斜杠 + 编号** 的方式，个别的比如 JavaScript语言，使用的是 **美元符号 + 编号** 的方式：
+
+|  编程语言  | 查找时引用方式 | 替换时引用方式 |
+| :--------: | :------------: | :------------: |
+|   Python   | \number 如 \1  | \number 如 \1  |
+|     Go     |  官方包不支持  |  官方包不支持  |
+|    Java    | \number 如 \1  | $number 如 $1  |
+| JavaScript | $number 如 $1  | $number 如 $1  |
+|    PHP     | \number 如 \1  | \number 如 \1  |
+|    Ruby    | \number 如 \1  | \number 如 \1  |
+
+在一个目标字符串中，查找两个重复出现的单词：
+![image-20230731144219315](daydayup.assets/image-20230731144219315.png)
+
+![image-20230731144445944](daydayup.assets/image-20230731144445944.png)
+
+利用分组引用替换时间demo:
+
+```python
+print("result8".center(50, '-'))
+test_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+print(test_str)
+regex = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+subst = r"\1年\2月\3日 \4时\5分\6秒"
+result8 = re.sub(regex, subst, test_str)
+print(result8)
+# 2023-07-31 14:39:59
+# 2023年07月31日 14时39分59秒
+```
 
 ## JWT漏洞
 
