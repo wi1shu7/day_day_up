@@ -62,7 +62,7 @@ curl -F "file=@/etc/passwd" http://127.0.0.1
    [SSRF漏洞中使用到的其他协议_0ak1ey的博客-CSDN博客](https://blog.csdn.net/qq_43665434/article/details/115434528)
 
    ```
-   dict://ip:port/命令:参数
+   dict://ip:port/后接TCP/IP数据量
    
    向服务器的端口请求为【命令:参数】，并在末尾自动补上\r\n(CRLF)，为漏洞利用增加了便利
    dict协议执行命令要一条一条执行

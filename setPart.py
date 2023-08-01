@@ -1,16 +1,20 @@
 import os
 import re
 
+SAVA_PATH = r'.\芝士'
 
-def replace_first_occurrence(string, old_substring, new_substring):
-    index = string.find(old_substring)  # 查找子字符串的索引
-    if index != -1:
-        # 使用切片操作替换第一次出现的子字符串
-        new_string = string[:index] + new_substring + string[index + len(old_substring):]
-        return new_string
-    else:
-        return string
+def get_files_in_directory(directory_path):
+    # 获取目录下的所有文件名
+    files = os.listdir(directory_path)
+    return files
 
+def delete_files_not_in_list(directory_path, subsections_keys):
+    files = get_files_in_directory(directory_path)
+    for file in files:
+        if file not in subsections_keys:
+            file_path = os.path.join(directory_path, file)
+            # 删除不属于 subsections_keys 列表的文件
+            os.remove(file_path)
 
 def extract_subsections(md_content):
     pattern = r'^## (.+?)$([\s\S]*?)(?=(^## |\Z))'
@@ -25,15 +29,14 @@ def modify_image_urls(content):
 
 
 def save_subsections_to_files(subsections):
-    import getToc
     import subprocess
+    global SAVA_PATH
 
-    save_path = r'.\芝士'
-    if not os.path.exists(save_path):
-        os.mkdir(save_path)
+    if not os.path.exists(SAVA_PATH):
+        os.mkdir(SAVA_PATH)
 
     for title, content, _ in subsections:
-        filename = os.path.join(save_path, f"{title}.md")
+        filename = os.path.join(SAVA_PATH, f"{title}.md")
         modified_content = '[TOC]' + modify_image_urls(content)
         with open(filename, 'w', encoding='utf-8') as file:
             file.write(modified_content.strip())
@@ -42,11 +45,19 @@ def save_subsections_to_files(subsections):
 
 
 def main():
+    global SAVA_PATH
     with open('daydayup.md', 'r', encoding='utf-8') as file:
         md_content = file.read()
 
     subsections = extract_subsections(md_content)
+
+    subsections_keys = []
+    for i in subsections:
+        subsections_keys.append(i[0] + '.md')
+
     save_subsections_to_files(subsections)
+    delete_files_not_in_list(SAVA_PATH, subsections_keys)
+
 
 
 if __name__ == "__main__":

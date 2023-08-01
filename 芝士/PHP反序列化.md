@@ -287,3 +287,5 @@ if __name__ == "__main__":
     a.join()
     b.join()
 ```
+
+### session反序列化

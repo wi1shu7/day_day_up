@@ -311,8 +311,9 @@ logger.info("Finish")
      
     logger.addHandler(handler)
     logger.addHandler(console)
-     
-     
+
+
+​     
     logger.info("creating an instance of subModule.subModuleClass")
     a = subModule.SubModuleClass()
     logger.info("calling subModule.subModuleClass.doSomething")

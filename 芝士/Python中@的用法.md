@@ -48,10 +48,11 @@ print(my_instance.my_property)
 
 
 
-- 类修饰符：将修饰符应用于类，用于修改类的行为或特性。
+- 类修饰符：将修饰符应用于类，用于修改类的行为或特性。类修饰符可以在类定义之前使用，作用于整个类。当定义类时，修饰符函数会在类创建时被调用，且只调用一次。
 
 ```python
 def add_method_to_class(cls):
+    print("add_method_to_class")
     def hello(self):
         print("Hello from the class method!")
     cls.say_hello = hello
@@ -63,4 +64,9 @@ class MyClass:
 
 my_instance = MyClass()
 my_instance.say_hello()
+"""
+结果
+add_method_to_class
+Hello from the class method!
+"""
 ```
