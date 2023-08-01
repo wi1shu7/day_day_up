@@ -14,6 +14,7 @@ def delete_files_not_in_list(directory_path, subsections_keys):
         if file not in subsections_keys:
             file_path = os.path.join(directory_path, file)
             # 删除不属于 subsections_keys 列表的文件
+            print(f'remove -> {file}')
             os.remove(file_path)
 
 def extract_subsections(md_content):

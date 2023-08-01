@@ -289,3 +289,109 @@ if __name__ == "__main__":
 ```
 
 ### session反序列化
+
+先说一下 PHP 处理 session 的一些细节信息。
+
+PHP 在存储 session 的时候会进行序列化，读取的时候会进行反序列化。它内置了多种用来序列化/反序列化的引擎，用于存取 `$_SESSION` 数据：
+
+1. `php`: 键名 + `|` + 经过 `serialize()`/`unserialize()` 处理的值。这是现在默认的引擎。
+2. `php_binary`: 键名的长度对应的 ASCII 字符 + 键名 + 经过 `serialize()`/`unserialize()` 处理的值
+3. `php_serialize`: 直接使用 `serialize()`/`unserialize()` 函数。(php>=5.5.4)
+
+session 相关的信息，可以在 phpinfo 里查到：
+
+![](../daydayup.assets/image-20230802004423865.png)
+
+1. `session.auto_start`: 是否自动启动一个 session
+2. `session.save_path`: 设置 session 的存储路径
+3. `session.save_handler`: 设置保存 session 的函数
+4. `session.serialize_handler`: 设置用来序列化/反序列化的引擎
+5. `session.upload_progress.enabled`: 启用上传进度跟踪，并填充$ _SESSION变量，默认启用
+6. `session.upload_progress.cleanup`: 读取所有POST数据（即完成上传）后立即清理进度信息，默认启用
+
+在我这个 PHP 的配置中，不会自动记录 session，session 内容是以文件方式来存储的（文件以 `sess_` + sessionid 命名）；由于存储的路径为空，所以运行的时候需要指定一下；序列化/反序列引擎为 `php`。
+
+```
+┌──(root💀kali)-[/home/soyamilk/桌面]
+└─# php ser_session.php                     
+                                                                                                                                                                                                     
+┌──(root💀kali)-[/home/soyamilk/桌面]
+└─# php -d 'session.serialize_handler=php_binary' ser_session.php 
+                                                                                                                                                                                                     
+┌──(root💀kali)-[/home/soyamilk/桌面]
+└─# php -d 'session.serialize_handler=php_serialize' ser_session.php
+```
+
+![](../daydayup.assets/image-20230802010208399.png)
+
+**进行利用：**
+
+不同的序列化/反序列化引擎对数据处理方式不同，造成了安全问题。
+
+引擎为 php_binary 的时候，暂未发现有效的利用方式，所以目前主要还是 php 与 php_serialize 两者混用的时候导致的问题。
+
+phpinfo
+
+![](../daydayup.assets/image-20230802022848180.png)
+
+set_session.php
+
+```php
+<?php
+    ini_set('session.serialize_handler', 'php_serialize');
+    ini_set('session.save_path', 'D:\phpstudy_pro\WWW\PHP_session_unserialize_demo\session_save');
+	session_start();
+	$_SESSION['name0'] = 'wi1shu';
+    if (array_key_exists('payload', $_GET)){
+        $_SESSION['name1'] = $_GET['payload'];
+    }else{
+        $_SESSION['name1'] = '"|s:6:"wi1shu';
+    }
+
+    print_r(session_id());
+```
+
+unserialize_session.php
+
+```php
+<?php
+    ini_set('session.save_path', 'D:\phpstudy_pro\WWW\PHP_session_unserialize_demo\session_save');
+    session_start();
+    var_dump($_SESSION);
+```
+
+![](../daydayup.assets/image-20230802022701424.png)
+
+php 引擎的格式为：键名 + `|` + 经过 `serialize()`/`unserialize()` 处理的值。那么对于这个例子来说，name 就是 `a:2:{s:5:"name0";s:6:"wi1shu";s:5:"name1";s:13:""`，`s:6:"wi1shu";}` 就是待反序列化的值。那么这里就非常清楚了，本质上就是通过 `|` 来完成注入（`"` 负责闭合引号，防止解析错误），让 php 引擎误以为前面全是 name，这样参与反序列化的数据就可以由我们来控制了。
+
+举个例子
+
+test_session.php
+
+```php
+<?php
+highlight_file(__FILE__);
+ini_set('session.save_path', dirname(__FILE__).'\session_save');
+class f4ke{
+    public $name;
+    function __wakeup(){
+        echo "Whata rey oud oing?";
+    }
+    function __destruct(){
+        eval($this->name);
+    }
+}
+
+session_start();
+var_dump($_SESSION);
+$str = new f4ke();
+?>
+```
+
+结合 set_session.php 就能够实现反序列化命令执行
+
+![](../daydayup.assets/image-20230802030859010.png)
+
+![](../daydayup.assets/image-20230802030934064.png)
+
+![](../daydayup.assets/image-20230802030952533.png)
