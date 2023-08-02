@@ -15,7 +15,7 @@ if(';' === preg_replace('/[^\W]+\((?R)?\)/', '', $_GET['code'])) {
 
 首先想到请求头参数`headers`，因为`headers`我们用户可控
 
-![](../daydayup.assets/image-20230720205606433.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720205606433.png)
 
 
 
@@ -25,18 +25,18 @@ if(';' === preg_replace('/[^\W]+\((?R)?\)/', '', $_GET['code'])) {
 
 先查看哪个参数在第一位，然后直接修改第一位的`header`参数为payload，然后选择到它执行即可。
 
-![](../daydayup.assets/image-20230720205743373-16898578643871.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720205743373-16898578643871.png)
 
 `system(next(getallheaders()))`
-![](../daydayup.assets/image-20230720210218241.png)
-![](../daydayup.assets/image-20230720210359355.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720210218241.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720210359355.png)
 
 ### get\_defined\_vars()
 
 该函数会返回全局变量的值，如get、post、cookie、file数据，返回一个多维数组，所以需要使用两次取数组值：
 
-![](../daydayup.assets/image-20230720210916892.png)
-![](../daydayup.assets/image-20230720211215175.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720210916892.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720211215175.png)
 
 ```
 system(current(next(get_defined_vars())))
@@ -72,12 +72,12 @@ system(current(next(get_defined_vars())))
 >    print(r.text)
 >```
 >
->![](../daydayup.assets/image-20230720220418361.png)
+>![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720220418361.png)
 
 这里要注意的是，file数组在最后一个，需要end定位，因为payload直接放在文件的名称上，再pos两次定位获得文件名
 
 `print_r(system(pos(current(end(get_defined_vars())))))`
-![](../daydayup.assets/image-20230720220701015.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720220701015.png)
 
 ### session_id()
 
@@ -91,19 +91,19 @@ session需要使用`session_start()`开启，然后返回参数给`session_id()`
 
 `if(session_start())var_dump(eval(hex2bin(session_id())));`
 
-![](../daydayup.assets/image-20230720224417366.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720224417366.png)
 
 >PHP7.3.4只能用这种方式来实现，PHP5可以不使用if而是把`session_start()`嵌套在`session_id()`里面
 >
 >PHP7.3.4
->![](../daydayup.assets/image-20230720224449551.png)
+>![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720224449551.png)
 >
 >PHP5.4.45
 >`var_dump(eval(hex2bin(session_id(session_start()))));`
->![](../daydayup.assets/image-20230720224842929.png)
+>![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720224842929.png)
 >
 >而PHP7.3.4使用嵌套方式`session_id()`就会返回`false`
->![](../daydayup.assets/image-20230720225131291.png)
+>![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230720225131291.png)
 >
 >初步判定是因为`session_start()`开启成功后会返回1，导致`session_id()`内有参数，让PHP以为是要修改PHPSESSID，从而导致无法获取到PHPSESSID
 
@@ -121,12 +121,12 @@ session需要使用`session_start()`开启，然后返回参数给`session_id()`
 
 也就是说系统在定义PHP预定义变量时的顺序是 `GET,POST,COOKIES,SERVER`，没有定义`Environment(E)`，你可以修改`php.ini`文件的 `variables_order`值为你想要的顺序，如：`"EGPCS"`。这时，`$_ENV`的值就可以取得了
 
-![](../daydayup.assets/format,png-168951187500036.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/format,png-168951187500036.png)
 
 我们来看修改后的值：（环境不同，环境变量显示也不同）
 
-![](../daydayup.assets/format,png-168951187500137.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/format,png-168951187500137.png)
 
 对此我们可以加以利用，方法同上文：
 
-![](../daydayup.assets/format,png-168951187500138-16898684188512.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/format,png-168951187500138-16898684188512.png)

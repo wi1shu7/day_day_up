@@ -25,7 +25,7 @@ def extract_subsections(md_content):
 
 def modify_image_urls(content):
     pattern = r'!\[.*?\]\((daydayup\.assets/.*?)\)'
-    new_content = re.sub(pattern, r'![](../\1)', content)
+    new_content = re.sub(pattern, r'![](https://github.com/wi1shu7/day_day_up/blob/main/\1)', content)
     return new_content
 
 

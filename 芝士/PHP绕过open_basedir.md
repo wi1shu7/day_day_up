@@ -24,11 +24,11 @@ pen_basedir是php.ini中的一个配置选项，它可将用户访问文件的�
 由于open_basedir的设置对system等命令执行函数是无效的，所以我们可以使用命令执行函数来访问限制目录。
 
 当我们设置好open_basedir之后，通过`file_get_contents()`去读取其他目录的文件，执行效果如图
-![](../daydayup.assets/image-20230722160854725.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230722160854725.png)
 
 很明显我们无法直接读取open_basedir所规定以外的目录文件。接下来通过`system()`来实现相同的功能
 
-![](../daydayup.assets/image-20230722161517469.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230722161517469.png)
 
 通过命令执行函数绕过open_basedir来读取flag，由于命令执行函数一般都会被限制在disable_function当中，所以我们需要寻找其他的途径来绕过限制。
 
@@ -68,13 +68,13 @@ open_bashedir配置：`open_basedir = /var/www/html/`
 
 接着在/var/www/中新建一个flag文件内容为`flag{Hack!}`
 
-![](../daydayup.assets/image-20230722181700956.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230722181700956.png)
 
 正常读一下内容
-![](../daydayup.assets/image-20230722182048849-16900212512641.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230722182048849-16900212512641.png)
 
 执行刚才写好的脚本
-![](../daydayup.assets/image-20230722182428909.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230722182428909.png)
 
 成功读取到flag，绕过了open_opendir的限制
 
@@ -129,7 +129,7 @@ foreach($a as $f){
 ```
 
 可以看到,成功列出目录:
-![](../daydayup.assets/open_basedir_5.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/open_basedir_5.png)
 
 当传入的参数为glob:///\*时会列出根目录下的文件，传入参数为glob://\*时会列出open_basedir允许目录下的文件。
 
@@ -143,7 +143,7 @@ var_dump(scandir('glob:///*'));
 >
 ```
 
-![](../daydayup.assets/open_basedir_6.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/open_basedir_6.png)
 
 这种方法也只能列出根目录和open_basedir允许目录下的文件。
 
@@ -162,7 +162,7 @@ if ( $b = opendir('glob:///*') ) {
 ?>
 ```
 
-![](../daydayup.assets/open_basedir_7.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/open_basedir_7.png)
 
 同理，这种方法也只能列出根目录和open_basedir允许目录下的文件。
 可以看到，上面三种和glob://相关的协议，最大的缺陷就是只能列目录，而且还只能列根目录和open_basedir允许目录的内容。
@@ -256,7 +256,7 @@ function dump($s){
 >
 >linux通配符
 >
->![](../daydayup.assets/v2-8ad24c5e1b91a5741444e98851b94b01_r.jpg)
+>![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/v2-8ad24c5e1b91a5741444e98851b94b01_r.jpg)
 
 #### realpath()绕过
 

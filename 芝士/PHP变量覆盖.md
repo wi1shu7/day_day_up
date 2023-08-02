@@ -49,7 +49,7 @@ echo $arr[1]; // baz
 
 该函数返回成功设置的变量数目。
 
-![](../daydayup.assets/image-20230717004044838.png)
+![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/image-20230717004044838.png)
 
 https://www.runoob.com/php/func-array-extract.html
 
