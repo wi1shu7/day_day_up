@@ -1,0 +1,14 @@
+<head>
+    {% block head %}
+    <title>{% block title %}{% endblock %} - World</title>
+    {% endblock %}
+</head>
+
+<body>
+    <div id="content">{% block content %}{% endblock %}</div>
+    <div id="footer">
+        {% block  footer %}
+        <script>This is javascript</script>
+        {% endblock %}
+    </div>
+</body>

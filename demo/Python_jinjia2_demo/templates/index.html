@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+</head>
+<body>
+    <h1>{{ heading }}</h1>
+    <ul>
+        {% for item in items %}
+			{% if item == "wi1shu" %}
+				<li>This is {{ item }}</li>
+			{% else %}
+				<li>{{ item }}</li>
+			{% endif %}
+        {% endfor %}
+    </ul>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{% extends "base.html" %}  <!-- 继承 -->
+
+{% block title %} Hello {% endblock %}  <!-- title 自定义 -->
+
+{% block head %}
+    {{ super() }}  <!-- 用于获取原有的信息 -->
+    <style type='text/css'>
+    .important { color: #FFFFFF }
+    </style>
+{% endblock %}   
+ 
+<!-- 其他不修改的原封不动的继承 -->

