@@ -2,6 +2,7 @@ import traceback
 
 from flask import Flask, render_template, request, render_template_string
 from jinja2 import Template
+import jinja2
 
 app = Flask(__name__)
 
@@ -12,6 +13,39 @@ def main():
                            title='My Page',
                            heading='Welcome to My Page',
                            items=['Apple', 'Banana', 'Orange', 'wi1shu'])
+
+
+@app.route('/subclasses/')
+def subclass():
+    subclasses = []
+
+    # 获取所有子类的名称
+    for i in ''.__class__.__mro__[-1].__subclasses__():
+        subclasses.append(str(i))
+
+    # 创建Jinja2模板
+    template_str = """
+    {% for num, subclass in subclasses %}
+        {{ num }} ----------> {{ subclass }}<br>
+    {% endfor %}
+    """
+
+    # 渲染模板并传递数据
+    return render_template_string(template_str, subclasses=enumerate(subclasses, 0))
+
+
+@app.route('/template_context/')
+def template_context():
+
+    # 创建Jinja2模板
+    template_str = """
+    {% for name, class in self.__dict__._TemplateReference__context.items() %}
+        {{ name|string }} -------------------> {{ class |string }}<br><br>
+    {% endfor %}
+    """
+
+    # 渲染模板并传递数据
+    return render_template_string(template_str)
 
 
 @app.route('/demo/', methods=['GET'])

