@@ -314,14 +314,14 @@ logger.info("Finish")
 
 
 ​     
-    logger.info("creating an instance of subModule.subModuleClass")
-    a = subModule.SubModuleClass()
-    logger.info("calling subModule.subModuleClass.doSomething")
-    a.doSomething()
-    logger.info("done with  subModule.subModuleClass.doSomething")
-    logger.info("calling subModule.some_function")
-    subModule.som_function()
-    logger.info("done with subModule.some_function")
+​    logger.info("creating an instance of subModule.subModuleClass")
+​    a = subModule.SubModuleClass()
+​    logger.info("calling subModule.subModuleClass.doSomething")
+​    a.doSomething()
+​    logger.info("done with  subModule.subModuleClass.doSomething")
+​    logger.info("calling subModule.some_function")
+​    subModule.som_function()
+​    logger.info("done with subModule.some_function")
 
 子模块subModule.py，
 

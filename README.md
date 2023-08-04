@@ -77,6 +77,7 @@
         * [过滤下划线](#过滤下划线)
         * [过滤运算符](#过滤运算符)
         * [限制 ( )](#限制--)
+    * [元类](#元类)
         * [利用f\-string](#利用f-string)
 * [SSTI](#ssti)
   * [SSTI简介](#ssti简介)
@@ -100,7 +101,13 @@
     * [py3\.9新特性](#py39新特性)
 * [反弹shell](#反弹shell)
 * [Python Flask框架相关](#python-flask框架相关)
+  * [session 信息泄露 &amp; 伪造](#session-信息泄露--伪造)
 * [Python中@的用法](#python中的用法)
+* [Python实现单例模式](#python实现单例模式)
+  * [1\. 使用函数装饰器](#1-使用函数装饰器)
+  * [2\. 使用基类](#2-使用基类)
+  * [3\. 模块级实例](#3-模块级实例)
+  * [4\. 共享属性](#4-共享属性)
 * [Python super函数的理解](#python-super函数的理解)
   * [MRO](#mro)
     * [旧式类MRO算法](#旧式类mro算法)
@@ -3098,7 +3105,7 @@ reprlib.aRepr['dir']
 >"""
 >```
 
->元类
+>#### 元类
 >
 >元类（metaclass）是一种高级的概念，用于控制类的创建过程。元类允许你在定义类时定制类的创建行为，类似于类是用于创建对象的模板，而元类是用于创建类的模板。
 >
@@ -4137,6 +4144,8 @@ curl 192.168.159.128:5478|bash
 
 ## Python Flask框架相关
 
+### session 信息泄露 & 伪造
+
 
 
 ## Python中@的用法
@@ -4211,6 +4220,96 @@ add_method_to_class
 Hello from the class method!
 """
 ```
+
+## Python实现单例模式
+
+### 1. 使用函数装饰器
+
+```python
+from functools import wraps
+
+def singleton(cls):
+    instances = {}
+    @wraps(cls)
+    def wrapper(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+    return wrapper
+
+# 1部分
+@singleton
+class MyClass:
+    pass
+
+# 2部分
+MyClass()
+MyClass()
+MyClass()
+```
+
+>调用装饰器的阶段是在类的定义阶段而不是对类进行实例化的阶段，所以在1部分的时候将类传进装饰器函数`singleton`中，而不是在2部分才将类传进装饰器函数，所以在定义阶段，`MyClass`就已经被赋成`singleton`里面的`wrapper`函数，这就导致`wrapper`在会被分配内存，从而使其中的变量`instances`一直存在
+>
+>
+>
+>在这段代码中，`instances`是`singleton`函数的局部变量，但由于Python的闭包特性，它会在`singleton`函数返回的`wrapper`函数中被保留下来。
+>
+>闭包是指一种函数，它记住了自己被定义时的环境。在这个例子中，`wrapper`函数就是一个闭包，它记住了`singleton`函数的环境，包括`instances`这个变量。所以，即使`singleton`函数运行完成之后，`instances`变量并不会被销毁，而是会被`wrapper`函数持续引用。
+>
+>当你下一次实例化`MyClass`的时候，`wrapper`会被调用，`instances`里依然会存在上次存储的类实例。这是因为`instances`是一个字典，用于存储已经实例化过的类和对应的实例。当你尝试实例化一个类时，`wrapper`首先会检查这个类是否已经在`instances`中，如果是，就直接返回对应的实例；否则，它会创建一个新的实例，存入`instances`，然后返回这个新的实例。这就是所谓的单例模式，保证一个类只有一个实例。
+>
+>所以，虽然`instances`在`singleton`函数中定义为局部变量，但由于闭包的特性，它在函数运行完成后并不会被销毁，而是会被保留下来，用于在后续的类实例化中保证单例模式。
+
+### 2. 使用基类
+
+使用基类 way实现单例,类继承该基类即可:
+
+*[这里](#元类)
+
+```python
+class Singleton(type):
+    def __init__(cls, name, bases, dict):
+        super(Singleton, cls).__init__(name, bases, dict)
+        cls._instance = None 
+
+    def __call__(cls, *args, **kw):
+        if cls._instance is None:
+            cls._instance = super(Singleton, cls).__call__(*args, **kw)
+        return cls._instance
+
+class Foo(metaclass=Singleton):
+    ...
+```
+
+### 3. 模块级实例
+
+因为模块天然是单例的,可以直接实现:
+
+```python
+# foo.py
+class Foo:
+  ...
+
+instance = Foo()
+```
+
+导入这个模块的其它地方都可以访问instance。
+
+### 4. 共享属性
+
+类的属性是共享的,可以用于单例:
+
+```python
+class Foo(object):
+    _instance = None
+    
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = super(Foo, cls).__new__(cls)
+        return cls._instance
+```
+
+这些是 Python 实现单例的一些常见方式。每种方式有不同的优劣,可以根据需求选择。
 
 ## Python super函数的理解
 
@@ -4781,14 +4880,14 @@ logger.info("Finish")
 
 
 ​     
-    logger.info("creating an instance of subModule.subModuleClass")
-    a = subModule.SubModuleClass()
-    logger.info("calling subModule.subModuleClass.doSomething")
-    a.doSomething()
-    logger.info("done with  subModule.subModuleClass.doSomething")
-    logger.info("calling subModule.some_function")
-    subModule.som_function()
-    logger.info("done with subModule.some_function")
+​    logger.info("creating an instance of subModule.subModuleClass")
+​    a = subModule.SubModuleClass()
+​    logger.info("calling subModule.subModuleClass.doSomething")
+​    a.doSomething()
+​    logger.info("done with  subModule.subModuleClass.doSomething")
+​    logger.info("calling subModule.some_function")
+​    subModule.som_function()
+​    logger.info("done with subModule.some_function")
 
 子模块subModule.py，
 
@@ -5848,3 +5947,153 @@ class student extends people{
 `*` 和 `#` 匹配光标当前所在的单词，移动光标到下一个（或者上一个）匹配的单词（ `*` 是下一个，`#` 是上一个）
 
 ## Golang
+
+`GOPATH`：Go语言项目的工作目录
+
+`GOBIN`：Go编译生成的程序的安装目录
+
+运行go程序：`go run main.go`
+
+```go
+// 代表的是一个可运行的应用程序
+package main
+ 
+// 导入 fmt 包
+import "fmt"
+
+// 程序的主入口
+func main() {
+	fmt.Printf("Hello world!")
+}
+```
+
+`main`包是一个特殊的包，代表你的go语言项目是一个可运行的程序而不是被导入的库
+
+跨平台编译：
+
+`GOOS`：要编译的目标操作系统
+
+`GOARCH`：代表要编译的目标处理器架构
+
+定义变量：
+
+```
+var 变量名 类型 = 表达式
+```
+
+Go语言具有类型推导的功能，所以定义变量时可以无需刻意定义变量的类型。
+
+```
+var 变量名 = 表达式
+```
+
+定义多个变量
+
+```
+var (
+		k int = 1000
+		z = 10000
+)
+```
+
+变量的简短声明`:=`
+
+```
+j := 100
+```
+
+指针对应的是变量在内存中的存储位置，也就说指针的值就是变量的内存地址
+
+```go
+pi := &i // 取地址
+fmt.Println(pi, *pi)
+```
+
+定义常量：
+
+```go
+const name = "wi1shu"
+```
+
+`iote`常量生成器：
+
+![image-20230804161918460](daydayup.assets/image-20230804161918460-16911371597571.png)
+
+数据类型：
+
+![image-20230804160826697](daydayup.assets/image-20230804160826697.png)
+
+`int`和`uint`没有具体的bit大小，他们的大小和CPU有关，能确定int的bit就选择比较明确的int类型，这会让你的程序具备很好的移植性
+
+字节`byte`类型等价于`uint8`类型，用于定义一个字节，字节`byte`类型也属于整型
+
+浮点数就代表现实中的小数，最常用的是`float64`，因为它的精度高，浮点计算的结果相比`float32`误差会更小。
+
+Go语言中的字符串可以表示为任意的数据，通过操作符 + 把字符串连接起来，得到一个新的字符串
+
+零值其实就是一个变量的默认值，如果我们声明了一个变量，但是没有对其进行初始化，那么 Go 语言会自动初始化其值为对应类型的零值
+
+Go语言是强类型的语言，不同类型的变量是无法相互使用和计算的，这也是为了保证Go程序的健壮性，不同类型的变量在进行赋值或者计算前，需要先进行类型转换
+
+```go
+i2s := strconv.Itoa(i) // int 转 str
+s2i, err := strconv.Atoi(i2s) // str 转 int
+fmt.Println(i2s, s2i, err)
+
+i2f := float64(i)
+f2i := int(i2f)
+fmt.Println(i2f, f2i)
+```
+
+`strings`包是用于处理字符串的工具包，里面有很多常用的函数，帮助我们对字符串进行操作
+
+![image-20230804162455322](daydayup.assets/image-20230804162455322.png)
+
+复数
+
+`if`：
+
+```go
+if i2 := i / 10; i2 > 10 {
+	fmt.Println("i2 > 10")
+} else if i2 < 10 && i2 > 0 {
+	fmt.Println("i2 < 10 && i2 > 0")
+} else {
+	fmt.Println("?")
+}
+```
+
+`switch`：
+
+![image-20230804213053596](daydayup.assets/image-20230804213053596.png)
+
+`switch`的`case`从上到下逐一进行判断，一旦满足条件，立即执行对应的分支并返回其余分支不再做判断
+
+`switch`中的`fallthrough`
+
+![image-20230804213210493](daydayup.assets/image-20230804213210493.png)
+
+`case`后的值要和`;`后的表达式结果类型相同，之后`case`后的值会和`j`进行比较
+
+`switch`语句非常强大，可以将表达式直接放在后面
+![image-20230804213448271](daydayup.assets/image-20230804213448271.png)
+
+ `for`：循环，三部分都可以省略
+
+>```go
+>for i, j := 1, 2; i < 10; i++ {
+>    // 循环体 
+>}
+>```
+>
+>这种效果可以实现C++中for循环定义多变量的效果。举一反三，if等语句中也可以
+
+![image-20230804213913824](daydayup.assets/image-20230804213913824.png)
+
+Go没有`while`循环，但是Go中的`for`可以当做`while`用
+![image-20230804213956832](daydayup.assets/image-20230804213956832.png)
+
+>个人总结：在这些语句中，`;`符号前面是进行赋值的语句，后面是进行比较的语句
+
+continue 可以跳出本次循环，继续执行下一个循环
+break 可以跳出整个 for 循环，哪怕 for 循环没有执行完，也会强制终止
