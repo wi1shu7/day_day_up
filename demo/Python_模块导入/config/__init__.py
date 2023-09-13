@@ -1,0 +1,1 @@
+from config.info_config import *
