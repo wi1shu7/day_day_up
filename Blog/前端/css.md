@@ -1,3 +1,5 @@
+## `position: relative;` 和 `position: absolute;`
+
 `position: relative;` 和 `position: absolute;` 是 CSS 中用于定位元素的两种不同方式，它们有以下主要区别：
 
 1. 定位参考点：
@@ -14,3 +16,27 @@
    - `position: absolute;`：通常在嵌套的情况下，相对于最近的具有定位属性的父元素进行定位。如果所有父元素都没有定位属性，则相对于视口定位。
 
 总之，`position: relative;` 用于相对定位元素，保留元素在文档流中的位置，而 `position: absolute;` 用于绝对定位元素，根据最近的具有定位属性的父元素来定位，同时脱离文档流。选择哪种定位方式取决于您的设计需求和元素的关系。
+
+
+
+## `position: absolute;`是以谁为定位位置
+
+
+
+`position: absolute;` 是相对于最近的具有定位（非 `static`）属性的父元素来进行定位的。
+
+如果您的元素具有 `position: absolute;`，但没有明确指定 `top`、`right`、`bottom` 或 `left` 属性，它将以最近的具有定位属性的父元素的左上角为参考点。
+
+如果没有任何具有定位属性的父元素，那么这个元素将以浏览器窗口（视口）的左上角为参考点。
+
+以下是一个示例，以说明元素的定位是相对于最近的具有定位属性的父元素：
+
+```
+htmlCopy code<div style="position: relative;">
+  <div style="position: absolute; top: 20px; left: 20px;">相对于这个父元素定位</div>
+</div>
+```
+
+在这个示例中，内部的 `<div>` 元素使用 `position: absolute;` 进行定位，它的定位参考点是包含它的具有 `position: relative;` 的父元素的左上角。
+
+请注意，如果没有明确的定位父元素，元素将以视口为参考点。因此，确保理解元素的定位上下文，以便您可以正确地定位元素。
