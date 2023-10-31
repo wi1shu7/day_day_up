@@ -102,7 +102,7 @@ base.html
 
 ```html
 <head>
-    {% block head %}
+    {% block head %}<link
     <title>{% block title %}{% endblock %} - World</title>
     {% endblock %}
 </head>
@@ -398,7 +398,7 @@ except Exception:
 4. 理论上有了 1 之后就可以搞出所有其他数字，可以用 `+` 或者是 `-`+`|abs`
 5. 空格：`{{ {}|center|last }}`、`{1:1}|xmlattr|first`
 6. `<`：`{}|select|string|first`
-7. `>`：`{}|select|string|last`
+7. `F>`：`{}|select|string|last`
 8. 点：`{{ self|float|string|min }}` 或者 `c.__lt__|string|truncate(3)|first`
 9. `a-z`：`{{ range.__doc__ + dict.__doc__}}`
 10. `A-Z`：`{{ (range.__doc__ + dict.__doc__) | upper }}`
@@ -778,7 +778,7 @@ Cookie方式，利用request.cookies传递参数
    利用dict绕过
 
    ```python
-   {{dict(__in=a,it__=a)|join}}  =__init_
+   {{dict(__in=a,it__=a)|join}}  =__init__
    ```
 
    例如 `whoami`：

