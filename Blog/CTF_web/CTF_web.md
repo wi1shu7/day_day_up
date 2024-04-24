@@ -468,6 +468,19 @@ s878926199a
 0e545993274517709034328855841020
 ```
 
+```
+双md5结果仍是0e开头字符串
+CbDLytmyGm2xQyaLNhWn
+md5(CbDLytmyGm2xQyaLNhWn) => 0ec20b7c66cafbcc7d8e8481f0653d18
+md5(md5(CbDLytmyGm2xQyaLNhWn)) => 0e3a5f2a80db371d4610b8f940d296af
+770hQgrBOjrcqftrlaZk
+md5(770hQgrBOjrcqftrlaZk) => 0e689b4f703bdc753be7e27b45cb3625
+md5(md5(770hQgrBOjrcqftrlaZk)) => 0e2756da68ef740fd8f5a5c26cc45064
+7r4lGXCH2Ksu2JNT3BYM
+md5(7r4lGXCH2Ksu2JNT3BYM) => 0e269ab12da27d79a6626d91f34ae849
+md5(md5(7r4lGXCH2Ksu2JNT3BYM)) => 0e48d320b2a97ab295f5c4694759889f
+```
+
 **md5碰撞**
 
 当不能传入数组时，就需要用两个值不一样但是md5加密之后的值一样的数值了
@@ -1257,13 +1270,10 @@ PHP类与对象：类、对象、方法、属性
 
    pop链的构造：<u>*awctf --- HE-ezser*</u>
 
-   <u>*adminpage*</u>
-
 2. 文件读取操作
 
    phar压缩文件
 
-   <u>*codeinlog*</u>
 
 [CTF：PHP MD5函数0E绕过漏洞_md5 0e_半点闲的博客-CSDN博客](https://blog.csdn.net/cg_i/article/details/117448881)
 

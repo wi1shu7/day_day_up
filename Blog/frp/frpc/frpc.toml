@@ -1,0 +1,18 @@
+serverAddr = "192.168.159.128"
+serverPort = 7894
+
+auth.token = "public"
+
+[[proxies]]
+name = "shell"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 22
+remotePort = 8888
+
+[[proxies]]
+name = "socks5"
+type = "tcp"
+remotePort = 8889
+[proxies.plugin]
+type = "socks5"

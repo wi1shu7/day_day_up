@@ -399,7 +399,7 @@ except Exception:
 5. 空格：`{{ {}|center|last }}`、`{1:1}|xmlattr|first`
 6. `<`：`{}|select|string|first`
 7. `F>`：`{}|select|string|last`
-8. 点：`{{ self|float|string|min }}` 或者 `c.__lt__|string|truncate(3)|first`
+8. 点：`{{ self|float|string|min }}` 或者 `config['__lt__']|string|truncate(3)|frist`
 9. `a-z`：`{{ range.__doc__ + dict.__doc__}}`
 10. `A-Z`：`{{ (range.__doc__ + dict.__doc__) | upper }}`
 
@@ -416,7 +416,7 @@ except Exception:
 >
 >`<bound method Undefined._fail_with_undefined_error of Undefined>`：这个错误信息是由Jinja2模板引擎的Undefined对象引起的。当在模板中引用了一个未定义的变量或对象时，Jinja2会将其表示为Undefined对象，以便在模板渲染过程中进行处理。
 >
->`truncate()` 过滤器用于截断字符串并添加省略号。它可以将一个较长的字符串截断为指定的长度，并在截断处添加省略号以表示字符串被截断了。
+>`truncate()` 过滤器用于截断字符串并添加省略号。它可以将一个较长的字符串截断为指定的长度，并在截断处添加省略号以表示字符串被截断了。[Flask中truncate过滤器无效，不起作用的问题，truncate详解-CSDN博客](https://blog.csdn.net/yueguangMaNong/article/details/85196199)
 >
 >`{{"Hello, World!"|truncate(6)}}` -> `Hel...`
 
